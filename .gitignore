@@ -1,0 +1,19 @@
+# Not shared
+PAs/
+Quiz/
+
+# macOS
+.DS_Store
+
+# LaTeX build files
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+
+# Vault hub note (links into the rest of the vault)
+_CS6304 ATML.md
