@@ -806,91 +806,97 @@ The lecture reduces to one inequality and one caveat. The inequality is Section 
 
 ## Numerical Problems
 
-**Problem 1 — Decomposing excess risk.** A model family $\mathcal{H}$ is chosen for a task. The best possible model over all hypotheses achieves $R_{\min} = 0.05$; the best model inside $\mathcal{H}$ achieves $R_{\min}^{*} = 0.12$; ERM returns a model with $R_{\text{emp}}(\hat{f}_\theta) = 0.18$. Compute $AE$, $EE$, and the excess risk, and state which component could be reduced by switching to a larger architecture.
+> [!example]- Problem 1 — Decomposing excess risk
+> A model family $\mathcal{H}$ is chosen for a task. The best possible model over all hypotheses achieves $R_{\min} = 0.05$; the best model inside $\mathcal{H}$ achieves $R_{\min}^{*} = 0.12$; ERM returns a model with $R_{\text{emp}}(\hat{f}_\theta) = 0.18$. Compute $AE$, $EE$, and the excess risk, and state which component could be reduced by switching to a larger architecture.
+>
+> *Solution.* Applying the definitions of Sections 3.2 and 3.4, the approximation error is $AE = R_{\min}^* - R_{\min} = 0.12 - 0.05 = 0.07$, and the estimation error is $EE = R_{\text{emp}}(\hat f_\theta) - R_{\text{True}}(f_\theta^*) = 0.18 - 0.12 = 0.06$. Summing,
+>
+> $$
+> \boxed{AE = 0.07, \qquad EE = 0.06, \qquad R_{\text{excess}} = 0.13}
+> $$
+>
+> Only $AE$ would be reduced by enlarging $\mathcal{H}$, since $AE$ measures model misspecification; $EE$ is the component reducible *within* a fixed $\mathcal{H}$ (by more data or lower capacity).
+>
+> *Reasonableness check:* both components are non-negative as they must be, and their sum equals $R_{\text{emp}}(\hat f_\theta) - R_{\min} = 0.18 - 0.05 = 0.13$, confirming the decomposition telescopes correctly. Note the trade-off: enlarging $\mathcal{H}$ to shrink $AE$ raises capacity, which per Section 3.5 works against $EE$.
 
-*Solution.* Applying the definitions of Sections 3.2 and 3.4, the approximation error is $AE = R_{\min}^* - R_{\min} = 0.12 - 0.05 = 0.07$, and the estimation error is $EE = R_{\text{emp}}(\hat f_\theta) - R_{\text{True}}(f_\theta^*) = 0.18 - 0.12 = 0.06$. Summing,
+> [!example]- Problem 2 — Margin and cross-entropy
+> A 4-class classifier produces logits $\psi_k^\top z_i$ of $(1.0,\, 4.0,\, 0.5,\, 2.0)$ for an example whose true class is $j = 2$. Compute the three margins $m_{jk}(z_i)$ and the resulting $\mathcal{L}_{\text{CE}_i}$ in nats. Then determine the loss if the true-class logit were raised to $8.0$.
+>
+> *Solution.* Using $m_{jk}(z_i) = \psi_j^\top z_i - \psi_k^\top z_i$ from Section 3.6 with $\psi_j^\top z_i = 4.0$, the margins are $m_{21} = 3.0$, $m_{23} = 3.5$, and $m_{24} = 2.0$. Substituting into $\mathcal{L}_{\text{CE}_i} = \log\big(1 + \sum_{k\neq j} e^{-m_{jk}}\big)$, the exponentials are $e^{-3.0}\approx 0.0498$, $e^{-3.5}\approx 0.0302$, and $e^{-2.0}\approx 0.1353$, summing to $0.2153$. Then $\log(1.2153) \approx 0.1950$.
+>
+> $$
+> \boxed{m = (3.0,\, 3.5,\, 2.0), \qquad \mathcal{L}_{\text{CE}_i} \approx 0.195 \text{ nats}}
+> $$
+>
+> Raising the true logit to $8.0$ gives margins $(7.0, 7.5, 6.0)$, exponentials $0.000912 + 0.000553 + 0.00248 = 0.00394$, and $\log(1.00394) \approx 0.00393$.
+>
+> $$
+> \boxed{\mathcal{L}_{\text{CE}_i} \approx 0.0039 \text{ nats — a 50-fold reduction}}
+> $$
+>
+> *Reasonableness check:* the loss falls toward zero as the margins grow, exactly as Section 3.6 predicts ($\mathcal{L}_{\text{CE}_i} = 0$ when $m_{jk}\to\infty$). Note that a mere 4-unit increase in one logit collapses the loss almost entirely — which is precisely why cross-entropy can be satisfied by a low-capacity model that has found *any* strongly-correlated direction, spurious or not.
 
-$$
-\boxed{AE = 0.07, \qquad EE = 0.06, \qquad R_{\text{excess}} = 0.13}
-$$
+> [!example]- Problem 3 — Reading the DA bound
+> A CSDA model achieves source loss $L_S(f_\theta) = 0.10$. An MMD estimate of $\text{Divergence}(P_S(x), P_T(x))$ gives $0.25$. Since the setting is closed-set, compute the bound on $L_T(f_\theta)$. Then recompute if the setting were partial-set with $a = 0.30$ and $b = 0.18$.
+>
+> *Solution.* In CSDA the label spaces are consistent, so $P_S(Y\mid x) = P_T(Y\mid x)$ and the conditional alignment term vanishes: $\min(a,b) = 0$ per Section 5.3. The bound is therefore $L_T \le 0.10 + 0.25 + 0$.
+>
+> $$
+> \boxed{L_T(f_\theta) \le 0.35 \quad \text{(CSDA)}}
+> $$
+>
+> For the partial-set case, the conditional term no longer vanishes and contributes $\min(0.30,\, 0.18) = 0.18$, giving $L_T \le 0.10 + 0.25 + 0.18$.
+>
+> $$
+> \boxed{L_T(f_\theta) \le 0.53 \quad \text{(PSDA)}}
+> $$
+>
+> *Reasonableness check:* the PSDA bound is looser, which is correct — semantic shift adds a source of target error that no amount of marginal alignment can remove, and this is exactly why the course restricts attention to CSDA. Note also that the bound uses $\min(a,b)$, not $a$ or $b$ individually, so only the *cheaper* of the two alignment directions is charged.
 
-Only $AE$ would be reduced by enlarging $\mathcal{H}$, since $AE$ measures model misspecification; $EE$ is the component reducible *within* a fixed $\mathcal{H}$ (by more data or lower capacity).
+> [!example]- Problem 4 — DAN objective
+> A DAN aligns layers $\ell_1 = 6$ through $\ell_2 = 8$ with $\lambda = 0.5$. The measured MMD distances are $d(\mathcal{D}_S^6, \mathcal{D}_T^6) = 0.4$, $d(\cdot^7) = 0.3$, and $d(\cdot^8) = 0.2$, and the source cross-entropy is $\mathcal{L}_{\text{CE}} = 0.35$. Compute $\mathcal{L}_{\text{Total}}$.
+>
+> *Solution.* The penalty in Section 6.1 uses the *squared* distances, so the three terms are $0.4^2 = 0.16$, $0.3^2 = 0.09$, and $0.2^2 = 0.04$, summing to $0.29$. Scaling by $\lambda = 0.5$ gives $0.145$, and adding the source cross-entropy,
+>
+> $$
+> \mathcal{L}_{\text{Total}} = 0.35 + 0.5(0.29).
+> $$
+>
+> $$
+> \boxed{\mathcal{L}_{\text{Total}} = 0.495}
+> $$
+>
+> *Reasonableness check:* forgetting to square the distances would give $0.5(0.9) = 0.45$ instead of $0.145$ — a threefold error, and the most common slip on this formula. Note also that the deepest aligned layer contributes least, consistent with shift being progressively corrected through the alignment block.
 
-*Reasonableness check:* both components are non-negative as they must be, and their sum equals $R_{\text{emp}}(\hat f_\theta) - R_{\min} = 0.18 - 0.05 = 0.13$, confirming the decomposition telescopes correctly. Note the trade-off: enlarging $\mathcal{H}$ to shrink $AE$ raises capacity, which per Section 3.5 works against $EE$.
+> [!example]- Problem 5 — Gradient reversal
+> At some training step, $\frac{\partial \mathcal{L}_{\text{domain}}}{\partial u} = 0.8$, $\frac{\partial u}{\partial z} = 0.5$, and $\frac{\partial z}{\partial \theta_f} = 2.0$, with $\lambda = 0.1$. Compute the gradient that reaches $\theta_f$ with and without the GRL, and state the direction each pushes the feature extractor.
+>
+> *Solution.* Without the GRL, the ordinary chain rule of Section 6.2 gives $0.8 \times 0.5 \times 2.0 = 0.8$. With the GRL, the same product is multiplied by $-\lambda$: $-0.1 \times 0.8 = -0.08$.
+>
+> $$
+> \boxed{\text{without GRL: } +0.8 \quad\text{(minimizes } \mathcal{L}_{\text{domain}}\text{)}; \qquad \text{with GRL: } -0.08 \quad\text{(maximizes it)}}
+> $$
+>
+> Without the GRL, gradient descent on $\theta_f$ would make the latent *more* domain-separable — the opposite of what DA needs. With the GRL, the sign flips, so the update drives $g_{\theta_f}(x_S) \approx g_{\theta_f}(x_T)$, i.e. domain invariance.
+>
+> *Reasonableness check:* the magnitude also shrinks by the factor $\lambda = 0.1$, which is intentional — $\lambda$ controls how hard the adversarial pressure competes against the supervised loss, and is typically ramped up over training so the classifier is not destabilized early on.
 
-**Problem 2 — Margin and cross-entropy.** A 4-class classifier produces logits $\psi_k^\top z_i$ of $(1.0,\, 4.0,\, 0.5,\, 2.0)$ for an example whose true class is $j = 2$. Compute the three margins $m_{jk}(z_i)$ and the resulting $\mathcal{L}_{\text{CE}_i}$ in nats. Then determine the loss if the true-class logit were raised to $8.0$.
-
-*Solution.* Using $m_{jk}(z_i) = \psi_j^\top z_i - \psi_k^\top z_i$ from Section 3.6 with $\psi_j^\top z_i = 4.0$, the margins are $m_{21} = 3.0$, $m_{23} = 3.5$, and $m_{24} = 2.0$. Substituting into $\mathcal{L}_{\text{CE}_i} = \log\big(1 + \sum_{k\neq j} e^{-m_{jk}}\big)$, the exponentials are $e^{-3.0}\approx 0.0498$, $e^{-3.5}\approx 0.0302$, and $e^{-2.0}\approx 0.1353$, summing to $0.2153$. Then $\log(1.2153) \approx 0.1950$.
-
-$$
-\boxed{m = (3.0,\, 3.5,\, 2.0), \qquad \mathcal{L}_{\text{CE}_i} \approx 0.195 \text{ nats}}
-$$
-
-Raising the true logit to $8.0$ gives margins $(7.0, 7.5, 6.0)$, exponentials $0.000912 + 0.000553 + 0.00248 = 0.00394$, and $\log(1.00394) \approx 0.00393$.
-
-$$
-\boxed{\mathcal{L}_{\text{CE}_i} \approx 0.0039 \text{ nats — a 50-fold reduction}}
-$$
-
-*Reasonableness check:* the loss falls toward zero as the margins grow, exactly as Section 3.6 predicts ($\mathcal{L}_{\text{CE}_i} = 0$ when $m_{jk}\to\infty$). Note that a mere 4-unit increase in one logit collapses the loss almost entirely — which is precisely why cross-entropy can be satisfied by a low-capacity model that has found *any* strongly-correlated direction, spurious or not.
-
-**Problem 3 — Reading the DA bound.** A CSDA model achieves source loss $L_S(f_\theta) = 0.10$. An MMD estimate of $\text{Divergence}(P_S(x), P_T(x))$ gives $0.25$. Since the setting is closed-set, compute the bound on $L_T(f_\theta)$. Then recompute if the setting were partial-set with $a = 0.30$ and $b = 0.18$.
-
-*Solution.* In CSDA the label spaces are consistent, so $P_S(Y\mid x) = P_T(Y\mid x)$ and the conditional alignment term vanishes: $\min(a,b) = 0$ per Section 5.3. The bound is therefore $L_T \le 0.10 + 0.25 + 0$.
-
-$$
-\boxed{L_T(f_\theta) \le 0.35 \quad \text{(CSDA)}}
-$$
-
-For the partial-set case, the conditional term no longer vanishes and contributes $\min(0.30,\, 0.18) = 0.18$, giving $L_T \le 0.10 + 0.25 + 0.18$.
-
-$$
-\boxed{L_T(f_\theta) \le 0.53 \quad \text{(PSDA)}}
-$$
-
-*Reasonableness check:* the PSDA bound is looser, which is correct — semantic shift adds a source of target error that no amount of marginal alignment can remove, and this is exactly why the course restricts attention to CSDA. Note also that the bound uses $\min(a,b)$, not $a$ or $b$ individually, so only the *cheaper* of the two alignment directions is charged.
-
-**Problem 4 — DAN objective.** A DAN aligns layers $\ell_1 = 6$ through $\ell_2 = 8$ with $\lambda = 0.5$. The measured MMD distances are $d(\mathcal{D}_S^6, \mathcal{D}_T^6) = 0.4$, $d(\cdot^7) = 0.3$, and $d(\cdot^8) = 0.2$, and the source cross-entropy is $\mathcal{L}_{\text{CE}} = 0.35$. Compute $\mathcal{L}_{\text{Total}}$.
-
-*Solution.* The penalty in Section 6.1 uses the *squared* distances, so the three terms are $0.4^2 = 0.16$, $0.3^2 = 0.09$, and $0.2^2 = 0.04$, summing to $0.29$. Scaling by $\lambda = 0.5$ gives $0.145$, and adding the source cross-entropy,
-
-$$
-\mathcal{L}_{\text{Total}} = 0.35 + 0.5(0.29).
-$$
-
-$$
-\boxed{\mathcal{L}_{\text{Total}} = 0.495}
-$$
-
-*Reasonableness check:* forgetting to square the distances would give $0.5(0.9) = 0.45$ instead of $0.145$ — a threefold error, and the most common slip on this formula. Note also that the deepest aligned layer contributes least, consistent with shift being progressively corrected through the alignment block.
-
-**Problem 5 — Gradient reversal.** At some training step, $\frac{\partial \mathcal{L}_{\text{domain}}}{\partial u} = 0.8$, $\frac{\partial u}{\partial z} = 0.5$, and $\frac{\partial z}{\partial \theta_f} = 2.0$, with $\lambda = 0.1$. Compute the gradient that reaches $\theta_f$ with and without the GRL, and state the direction each pushes the feature extractor.
-
-*Solution.* Without the GRL, the ordinary chain rule of Section 6.2 gives $0.8 \times 0.5 \times 2.0 = 0.8$. With the GRL, the same product is multiplied by $-\lambda$: $-0.1 \times 0.8 = -0.08$.
-
-$$
-\boxed{\text{without GRL: } +0.8 \quad\text{(minimizes } \mathcal{L}_{\text{domain}}\text{)}; \qquad \text{with GRL: } -0.08 \quad\text{(maximizes it)}}
-$$
-
-Without the GRL, gradient descent on $\theta_f$ would make the latent *more* domain-separable — the opposite of what DA needs. With the GRL, the sign flips, so the update drives $g_{\theta_f}(x_S) \approx g_{\theta_f}(x_T)$, i.e. domain invariance.
-
-*Reasonableness check:* the magnitude also shrinks by the factor $\lambda = 0.1$, which is intentional — $\lambda$ controls how hard the adversarial pressure competes against the supervised loss, and is typically ramped up over training so the classifier is not destabilized early on.
-
-**Problem 6 — Class prototype and confidence-gated target loss.** Three source images of class $c$ produce unnormalized features $(3,4)$, $(0,5)$, and $(6,8)$. Compute the prototype $\mu_c$. Separately, in a prompt-learning run with $N_T = 4$ target samples, the probabilities assigned to their pseudo-labels are $(0.95,\, 0.60,\, 0.88,\, 0.40)$ with threshold $\tau = 0.7$. Compute $\mathcal{L}_T$ over the retained samples.
-
-*Solution.* Following Section 6.3, each feature is $\ell_2$-normalized *before* averaging: $(3,4)$ has norm $5$ giving $(0.6, 0.8)$; $(0,5)$ has norm $5$ giving $(0, 1)$; $(6,8)$ has norm $10$ giving $(0.6, 0.8)$. Averaging the three,
-
-$$
-\boxed{\mu_c = \tfrac13\big[(0.6,0.8) + (0,1) + (0.6,0.8)\big] = (0.4,\; 0.8\overline{6})}
-$$
-
-For the target loss, the threshold $\tau = 0.7$ retains only the samples with probabilities $0.95$ and $0.88$; the other two are discarded as noisy pseudo-labels. Averaging the negative logs over the retained samples, $-\log(0.95) \approx 0.0513$ and $-\log(0.88) \approx 0.1278$, so $\mathcal{L}_T = \tfrac12(0.0513 + 0.1278)$.
-
-$$
-\boxed{\mathcal{L}_T \approx 0.0896 \text{ nats (2 of 4 samples retained)}}
-$$
-
-*Reasonableness check:* note that $(3,4)$ and $(6,8)$ normalize to the *same* unit vector — they differ only in magnitude, which normalization deliberately discards, so the prototype is a mean of directions rather than of magnitudes. On the loss side, including the two rejected samples would have raised $\mathcal{L}_T$ to roughly $0.36$ — the threshold is doing real work, which is exactly the pseudo-label-noise removal described in Section 6.5.
+> [!example]- Problem 6 — Class prototype and confidence-gated target loss
+> Three source images of class $c$ produce unnormalized features $(3,4)$, $(0,5)$, and $(6,8)$. Compute the prototype $\mu_c$. Separately, in a prompt-learning run with $N_T = 4$ target samples, the probabilities assigned to their pseudo-labels are $(0.95,\, 0.60,\, 0.88,\, 0.40)$ with threshold $\tau = 0.7$. Compute $\mathcal{L}_T$ over the retained samples.
+>
+> *Solution.* Following Section 6.3, each feature is $\ell_2$-normalized *before* averaging: $(3,4)$ has norm $5$ giving $(0.6, 0.8)$; $(0,5)$ has norm $5$ giving $(0, 1)$; $(6,8)$ has norm $10$ giving $(0.6, 0.8)$. Averaging the three,
+>
+> $$
+> \boxed{\mu_c = \tfrac13\big[(0.6,0.8) + (0,1) + (0.6,0.8)\big] = (0.4,\; 0.8\overline{6})}
+> $$
+>
+> For the target loss, the threshold $\tau = 0.7$ retains only the samples with probabilities $0.95$ and $0.88$; the other two are discarded as noisy pseudo-labels. Averaging the negative logs over the retained samples, $-\log(0.95) \approx 0.0513$ and $-\log(0.88) \approx 0.1278$, so $\mathcal{L}_T = \tfrac12(0.0513 + 0.1278)$.
+>
+> $$
+> \boxed{\mathcal{L}_T \approx 0.0896 \text{ nats (2 of 4 samples retained)}}
+> $$
+>
+> *Reasonableness check:* note that $(3,4)$ and $(6,8)$ normalize to the *same* unit vector — they differ only in magnitude, which normalization deliberately discards, so the prototype is a mean of directions rather than of magnitudes. On the loss side, including the two rejected samples would have raised $\mathcal{L}_T$ to roughly $0.36$ — the threshold is doing real work, which is exactly the pseudo-label-noise removal described in Section 6.5.
 
 ---
 

@@ -594,85 +594,96 @@ Options 3–5 differ in what makes the latent thought visual: attention to image
 
 ## Numerical Problems
 
-**Problem 1 — inference cost of thinking longer.** A forward pass costs about $2N$ FLOPs per generated token. Compare a 7B model that writes a 4,000-token reasoning trace with a 70B model that answers directly in 500 tokens.
+> [!example]- Problem 1 — inference cost of thinking longer
+> A forward pass costs about $2N$ FLOPs per generated token. Compare a 7B model that writes a 4,000-token reasoning trace with a 70B model that answers directly in 500 tokens.
+>
+> The 7B model costs $2 \times 7\times10^9 \times 4000 = 5.6\times10^{13}$ FLOPs. The 70B model costs $2 \times 7\times10^{10} \times 500 = 7.0\times10^{13}$ FLOPs.
+>
+> $$\boxed{5.6\times10^{13} \text{ vs } 7.0\times10^{13} \text{ FLOPs}}$$
+>
+> The small model thinking eight times longer still uses 20% less compute per query. Whether it is also more accurate is the empirical question of [[#1.1 From training-time scaling to inference compute|§1.1]].
 
-The 7B model costs $2 \times 7\times10^9 \times 4000 = 5.6\times10^{13}$ FLOPs. The 70B model costs $2 \times 7\times10^{10} \times 500 = 7.0\times10^{13}$ FLOPs.
+> [!example]- Problem 2 — Plan-and-Solve
+> For a query, $P_\theta(P \mid x) = 0.8$, $P_\theta(r \mid x, P) = 0.5$ and $P_\theta(y \mid x, P, r) = 0.9$. What is the joint probability of this plan, trace and answer?
+>
+> By the chain rule of [[#2.3 Plan-and-Solve|§2.3]], $P_\theta(P, r, y \mid x) = 0.8 \times 0.5 \times 0.9$:
+>
+> $$\boxed{0.36}$$
 
-$$\boxed{5.6\times10^{13} \text{ vs } 7.0\times10^{13} \text{ FLOPs}}$$
+> [!example]- Problem 3 — the answer marginal
+> A model can produce three traces with $P_\theta(r_1 \mid x) = 0.5$, $P_\theta(r_2 \mid x) = 0.3$ and $P_\theta(r_3 \mid x) = 0.2$. Traces 1 and 3 end in answer A, trace 2 in answer B (each with probability 1). What is $P_\theta(A \mid x)$?
+>
+> $$P_\theta(A \mid x) = \sum_r P_\theta(r \mid x)P_\theta(A \mid x, r) = 0.5 \times 1 + 0.3 \times 0 + 0.2 \times 1 = \boxed{0.7}$$
+>
+> A single sampled trace gives B 30% of the time, even though A holds 70% of the probability. This is why voting over samples ([[#3.2 Self-consistency (majority voting)|§3.2]]) helps.
 
-The small model thinking eight times longer still uses 20% less compute per query. Whether it is also more accurate is the empirical question of [[#1.1 From training-time scaling to inference compute|§1.1]].
+> [!example]- Problem 4 — self-consistency
+> Seven samples for "15% of 240" return $\{36, 32, 36, 24, 36, 32, 36\}$. Compute $\hat P_7$ and $\hat y_{sc}$.
+>
+> Counting: 36 appears 4 times, 32 twice, 24 once. So $\hat P_7(36) = 4/7 = 0.571$, $\hat P_7(32) = 2/7 = 0.286$, $\hat P_7(24) = 1/7 = 0.143$. By [[#^eq-1|eq. (1)]]:
+>
+> $$\boxed{\hat y_{sc} = 36, \quad \hat P_7(36) = 0.571}$$
 
-**Problem 2 — Plan-and-Solve.** For a query, $P_\theta(P \mid x) = 0.8$, $P_\theta(r \mid x, P) = 0.5$ and $P_\theta(y \mid x, P, r) = 0.9$. What is the joint probability of this plan, trace and answer?
+> [!example]- Problem 5 — coverage vs selection
+> Each sample is correct with probability $p = 0.2$. (a) What is the coverage with $K = 10$? (b) If the verifier picks the correct answer 60% of the time when it is present, what is the final accuracy? (c) Compare with $K = 1$.
+>
+> (a) $\text{coverage}(10) = 1 - 0.8^{10} = 1 - 0.1074 = 0.893$.
+>
+> (b) Accuracy $\approx 0.893 \times 0.6 = 0.536$.
+>
+> (c) With $K = 1$, there is nothing to select, so accuracy $= p = 0.2$.
+>
+> $$\boxed{\text{coverage } 0.893, \quad \text{accuracy } 0.536 \text{ vs } 0.2}$$
+>
+> As $K \to \infty$, coverage approaches 1 but accuracy approaches only 0.6: the verifier sets the ceiling ([[#4.1 Solution coverage vs selection accuracy|§4.1]]).
 
-By the chain rule of [[#2.3 Plan-and-Solve|§2.3]], $P_\theta(P, r, y \mid x) = 0.8 \times 0.5 \times 0.9$:
+> [!example]- Problem 6 — process verification
+> Trajectory A has step scores $(0.9, 0.8, 0.95, 0.5)$; trajectory B has $(0.7, 0.7, 0.7, 0.7)$. Score both with the product rule, compare with a plain sum, and locate A's most likely first error.
+>
+> Product: $V_A = 0.9 \times 0.8 \times 0.95 \times 0.5 = 0.342$; $V_B = 0.7^4 = 0.240$. Sum: $\Sigma_A = 3.15$, $\Sigma_B = 2.80$.
+>
+> $$\boxed{V_A = 0.342 > V_B = 0.240}$$
+>
+> Both rules prefer A here, but A's step 4 scores only 0.5, which marks it as the most likely first incorrect step. A minimum rule would prefer B ($0.7 > 0.5$). Which rule is right depends on whether one weak step should sink a trajectory ([[#4.3 Process verification|§4.3]]).
 
-$$\boxed{0.36}$$
+> [!example]- Problem 7 — the cost of beam search
+> Beam search with $K = 3$ beams and $J = 4$ continuations per beam runs for 5 steps. How many step generations and verifier calls does it make, and how many candidates are discarded per step?
+>
+> Each step expands $K$ states into $KJ = 12$ candidates, all of which are generated and scored, and keeps 3. Over 5 steps:
+>
+> $$\boxed{60 \text{ step generations}, \ 60 \text{ verifier calls}, \ 9 \text{ discarded per step}}$$
+>
+> (This assumes the search starts from 3 states; starting from one state, the first step makes only $J = 4$ candidates.)
 
-**Problem 3 — the answer marginal.** A model can produce three traces with $P_\theta(r_1 \mid x) = 0.5$, $P_\theta(r_2 \mid x) = 0.3$ and $P_\theta(r_3 \mid x) = 0.2$. Traces 1 and 3 end in answer A, trace 2 in answer B (each with probability 1). What is $P_\theta(A \mid x)$?
+> [!example]- Problem 8 — the value of a reasoning path
+> A path's PRM prefix scores are $R_{\text{PRM}}(r_1) = 0.8$, $R_{\text{PRM}}(r_1, r_2) = 0.6$ and $R_{\text{PRM}}(r_1, r_2, r_3) = 0.9$, with $\gamma = 0.9$ and the sum starting at $k = 1$. Compute $V(\tau)$.
+>
+> $$V(\tau) = 0.9 \times 0.8 + 0.9^2 \times 0.6 + 0.9^3 \times 0.9 = 0.72 + 0.486 + 0.656 = \boxed{1.862}$$
 
-$$P_\theta(A \mid x) = \sum_r P_\theta(r \mid x)P_\theta(A \mid x, r) = 0.5 \times 1 + 0.3 \times 0 + 0.2 \times 1 = \boxed{0.7}$$
+> [!example]- Problem 9 — GRPO advantages for a VLM
+> For one image question, $G = 4$ roll-outs get verifier rewards $\{1, 0, 0, 1\}$. Compute the relative advantages (mean-subtracted, as in [[ATML_Lecture_8 - LLM Alignment#6.1 What changes: the advantage|Lecture 8 §6.1]]). What happens if all four rewards are 1?
+>
+> The mean is 0.5, so $A = r - 0.5$:
+>
+> $$\boxed{A = (+0.5, -0.5, -0.5, +0.5)}$$
+>
+> If all rewards are 1, the mean is 1 and every advantage is 0, so the question gives no gradient ([[ATML_Lecture_9 - RLVR, Reasoning LLMs, and Using LLMs#1.5 Properties of RLVR|Lecture 9 §1.5]]).
 
-A single sampled trace gives B 30% of the time, even though A holds 70% of the probability. This is why voting over samples ([[#3.2 Self-consistency (majority voting)|§3.2]]) helps.
+> [!example]- Problem 10 — what a token throws away
+> A model has vocabulary size $|V| = 300{,}000$ and hidden size $d = 4096$ stored in 16-bit floats. Compare the information in one sampled token with the size of the hidden state it came from, and the LM-head cost per token ($2d|V|$ FLOPs).
+>
+> A token carries at most $\log_2 300{,}000 = 18.2$ bits. The hidden state takes $4096 \times 16 = 65{,}536$ bits. The LM head costs $2 \times 4096 \times 300{,}000 = 2.46\times10^9$ FLOPs per token.
+>
+> $$\boxed{18.2 \text{ bits vs } 65{,}536 \text{ bits}; \quad 2.46\times10^9 \text{ FLOPs per token}}$$
+>
+> The hidden state isn't 65,536 bits of useful information, but the gap shows how much decoding can discard. That is the motivation for latent reasoning in [[#5.1 The cost of explicit reasoning tokens|§5.1]].
 
-**Problem 4 — self-consistency.** Seven samples for "15% of 240" return $\{36, 32, 36, 24, 36, 32, 36\}$. Compute $\hat P_7$ and $\hat y_{sc}$.
-
-Counting: 36 appears 4 times, 32 twice, 24 once. So $\hat P_7(36) = 4/7 = 0.571$, $\hat P_7(32) = 2/7 = 0.286$, $\hat P_7(24) = 1/7 = 0.143$. By [[#^eq-1|eq. (1)]]:
-
-$$\boxed{\hat y_{sc} = 36, \quad \hat P_7(36) = 0.571}$$
-
-**Problem 5 — coverage vs selection.** Each sample is correct with probability $p = 0.2$. (a) What is the coverage with $K = 10$? (b) If the verifier picks the correct answer 60% of the time when it is present, what is the final accuracy? (c) Compare with $K = 1$.
-
-(a) $\text{coverage}(10) = 1 - 0.8^{10} = 1 - 0.1074 = 0.893$.
-
-(b) Accuracy $\approx 0.893 \times 0.6 = 0.536$.
-
-(c) With $K = 1$, there is nothing to select, so accuracy $= p = 0.2$.
-
-$$\boxed{\text{coverage } 0.893, \quad \text{accuracy } 0.536 \text{ vs } 0.2}$$
-
-As $K \to \infty$, coverage approaches 1 but accuracy approaches only 0.6: the verifier sets the ceiling ([[#4.1 Solution coverage vs selection accuracy|§4.1]]).
-
-**Problem 6 — process verification.** Trajectory A has step scores $(0.9, 0.8, 0.95, 0.5)$; trajectory B has $(0.7, 0.7, 0.7, 0.7)$. Score both with the product rule, compare with a plain sum, and locate A's most likely first error.
-
-Product: $V_A = 0.9 \times 0.8 \times 0.95 \times 0.5 = 0.342$; $V_B = 0.7^4 = 0.240$. Sum: $\Sigma_A = 3.15$, $\Sigma_B = 2.80$.
-
-$$\boxed{V_A = 0.342 > V_B = 0.240}$$
-
-Both rules prefer A here, but A's step 4 scores only 0.5, which marks it as the most likely first incorrect step. A minimum rule would prefer B ($0.7 > 0.5$). Which rule is right depends on whether one weak step should sink a trajectory ([[#4.3 Process verification|§4.3]]).
-
-**Problem 7 — the cost of beam search.** Beam search with $K = 3$ beams and $J = 4$ continuations per beam runs for 5 steps. How many step generations and verifier calls does it make, and how many candidates are discarded per step?
-
-Each step expands $K$ states into $KJ = 12$ candidates, all of which are generated and scored, and keeps 3. Over 5 steps:
-
-$$\boxed{60 \text{ step generations}, \ 60 \text{ verifier calls}, \ 9 \text{ discarded per step}}$$
-
-(This assumes the search starts from 3 states; starting from one state, the first step makes only $J = 4$ candidates.)
-
-**Problem 8 — the value of a reasoning path.** A path's PRM prefix scores are $R_{\text{PRM}}(r_1) = 0.8$, $R_{\text{PRM}}(r_1, r_2) = 0.6$ and $R_{\text{PRM}}(r_1, r_2, r_3) = 0.9$, with $\gamma = 0.9$ and the sum starting at $k = 1$. Compute $V(\tau)$.
-
-$$V(\tau) = 0.9 \times 0.8 + 0.9^2 \times 0.6 + 0.9^3 \times 0.9 = 0.72 + 0.486 + 0.656 = \boxed{1.862}$$
-
-**Problem 9 — GRPO advantages for a VLM.** For one image question, $G = 4$ roll-outs get verifier rewards $\{1, 0, 0, 1\}$. Compute the relative advantages (mean-subtracted, as in [[ATML_Lecture_8 - LLM Alignment#6.1 What changes: the advantage|Lecture 8 §6.1]]). What happens if all four rewards are 1?
-
-The mean is 0.5, so $A = r - 0.5$:
-
-$$\boxed{A = (+0.5, -0.5, -0.5, +0.5)}$$
-
-If all rewards are 1, the mean is 1 and every advantage is 0, so the question gives no gradient ([[ATML_Lecture_9 - RLVR, Reasoning LLMs, and Using LLMs#1.5 Properties of RLVR|Lecture 9 §1.5]]).
-
-**Problem 10 — what a token throws away.** A model has vocabulary size $|V| = 300{,}000$ and hidden size $d = 4096$ stored in 16-bit floats. Compare the information in one sampled token with the size of the hidden state it came from, and the LM-head cost per token ($2d|V|$ FLOPs).
-
-A token carries at most $\log_2 300{,}000 = 18.2$ bits. The hidden state takes $4096 \times 16 = 65{,}536$ bits. The LM head costs $2 \times 4096 \times 300{,}000 = 2.46\times10^9$ FLOPs per token.
-
-$$\boxed{18.2 \text{ bits vs } 65{,}536 \text{ bits}; \quad 2.46\times10^9 \text{ FLOPs per token}}$$
-
-The hidden state isn't 65,536 bits of useful information, but the gap shows how much decoding can discard. That is the motivation for latent reasoning in [[#5.1 The cost of explicit reasoning tokens|§5.1]].
-
-**Problem 11 — horizontal latent thoughts.** A VLM input has $T = 600$ tokens (576 image, 24 text). Horizontal reasoning appends $K = 8$ latent vectors per step for $N = 4$ steps. What is the final sequence length, and how many positions does vertical refinement with $N = 4$ use?
-
-Horizontal: $T + NK = 600 + 4 \times 8 = 632$. Vertical keeps $T = 600$ but runs the VLM 4 times.
-
-$$\boxed{632 \text{ positions (horizontal)}; \ 600 \text{ positions} \times 4 \text{ passes (vertical)}}$$
+> [!example]- Problem 11 — horizontal latent thoughts
+> A VLM input has $T = 600$ tokens (576 image, 24 text). Horizontal reasoning appends $K = 8$ latent vectors per step for $N = 4$ steps. What is the final sequence length, and how many positions does vertical refinement with $N = 4$ use?
+>
+> Horizontal: $T + NK = 600 + 4 \times 8 = 632$. Vertical keeps $T = 600$ but runs the VLM 4 times.
+>
+> $$\boxed{632 \text{ positions (horizontal)}; \ 600 \text{ positions} \times 4 \text{ passes (vertical)}}$$
 
 ---
 

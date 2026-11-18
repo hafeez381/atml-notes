@@ -541,73 +541,78 @@ This lecture settles the pipeline, the six properties, the three measurement fam
 
 These exercise the lecture's three quantitative results: the capacity/margin bound of Section 5.2, the cross-entropy forms of Sections 7.3–7.4, and the moment definitions of Section 8. Problems 1 and 2 are paired, the first computing the capacity the second substitutes into the bound; Problems 3 and 4 compute the same number two ways, which checks whether the algebra of Section 7.4 is understood rather than memorized.
 
-**Problem 1 — Capacity of a small network.** A 3-layer network has weight matrices with spectral norms $\lVert W_1\rVert_2 = 2$, $\lVert W_2\rVert_2 = 1.5$, $\lVert W_3\rVert_2 = 1$, and Frobenius norms $\lVert W_1 \rVert_F = 4$, $\lVert W_2 \rVert_F = 3$, $\lVert W_3 \rVert_F = 2$. Compute $\beta$, $S$, and the capacity $\beta\sqrt{S}$.
+> [!example]- Problem 1 — Capacity of a small network
+> A 3-layer network has weight matrices with spectral norms $\lVert W_1\rVert_2 = 2$, $\lVert W_2\rVert_2 = 1.5$, $\lVert W_3\rVert_2 = 1$, and Frobenius norms $\lVert W_1 \rVert_F = 4$, $\lVert W_2 \rVert_F = 3$, $\lVert W_3 \rVert_F = 2$. Compute $\beta$, $S$, and the capacity $\beta\sqrt{S}$.
+>
+> *Solution.* From the definition $\beta = \prod_\ell \lVert W_\ell\rVert_2$, the spectral norms multiply to $\beta = 2 \times 1.5 \times 1 = 3$. For $S = \sum_\ell \lVert W_\ell\rVert_F^2 / \lVert W_\ell \rVert_2^2$, each layer contributes the squared ratio of its two norms: $16/4 = 4$, $9/2.25 = 4$, and $4/1 = 4$, so $S = 12$. Combining these, $\beta\sqrt{S} = 3\sqrt{12} = 3(2\sqrt{3}) = 6\sqrt{3}$.
+>
+> $$
+> \boxed{\beta = 3, \quad S = 12, \quad \text{Capacity} = 6\sqrt{3} \approx 10.39}
+> $$
+>
+> *Reasonableness check:* $S = 12$ sits between its theoretical bounds — $S \geq L = 3$ always (since $\lVert W\rVert_F \geq \lVert W\rVert_2$), with equality only for rank-one layers — so a value of 12 for three layers indicates each layer has several comparably-sized singular directions, which is typical of a genuinely wide network.
 
-*Solution.* From the definition $\beta = \prod_\ell \lVert W_\ell\rVert_2$, the spectral norms multiply to $\beta = 2 \times 1.5 \times 1 = 3$. For $S = \sum_\ell \lVert W_\ell\rVert_F^2 / \lVert W_\ell \rVert_2^2$, each layer contributes the squared ratio of its two norms: $16/4 = 4$, $9/2.25 = 4$, and $4/1 = 4$, so $S = 12$. Combining these, $\beta\sqrt{S} = 3\sqrt{12} = 3(2\sqrt{3}) = 6\sqrt{3}$.
+> [!example]- Problem 2 — Using the generalization bound
+> A model trained on $N = 10{,}000$ examples achieves $\text{Loss}_{\text{Train}} = 0.15$, has capacity $\beta\sqrt{S} = 20$, and achieves a margin $\gamma = 0.5$. Bound its test loss. Then determine what margin would be needed to halve the generalization term.
+>
+> *Solution.* Substituting into the boxed bound of Section 5.2, the generalization term is $\frac{1}{\sqrt{N}}\cdot\frac{\beta\sqrt{S}}{\gamma} = \frac{1}{100}\cdot\frac{20}{0.5} = \frac{40}{100} = 0.4$, so
+>
+> $$
+> \text{Loss}_{\text{Test}} \le 0.15 + 0.4.
+> $$
+>
+> $$
+> \boxed{\text{Loss}_{\text{Test}} \le 0.55}
+> $$
+>
+> Because the generalization term is inversely proportional to $\gamma$, halving it requires doubling the margin, $\gamma = 1.0$, giving a generalization term of $0.2$ and a bound of $0.35$.
+>
+> *Reasonableness check:* the bound $0.55$ exceeds the training loss, as it must — the bound is only useful when the generalization term is small relative to the training loss, which here it is not, signalling that this model is under-regularized for its sample size.
 
-$$
-\boxed{\beta = 3, \quad S = 12, \quad \text{Capacity} = 6\sqrt{3} \approx 10.39}
-$$
+> [!example]- Problem 3 — Cross-entropy from logits
+> A 4-class classifier produces logits $s = (2.0,\, 1.0,\, 0.5,\, -1.0)$ for an example whose true class is $j = 2$ (i.e. the logit $s_2 = 1.0$). Compute $\mathcal{L}_{\text{CE}}$ in nats.
+>
+> *Solution.* Using the log-sum-exp form $\mathcal{L}_{\text{CE}} = -s_j + \log\sum_k e^{s_k}$, the exponentials are $e^{2.0} \approx 7.389$, $e^{1.0} \approx 2.718$, $e^{0.5} \approx 1.649$, and $e^{-1.0} \approx 0.368$, summing to $12.124$. Taking the natural logarithm, $\log(12.124) \approx 2.495$, and subtracting the true-class logit $s_2 = 1.0$,
+>
+> $$
+> \mathcal{L}_{\text{CE}} = -1.0 + 2.495.
+> $$
+>
+> $$
+> \boxed{\mathcal{L}_{\text{CE}} \approx 1.495 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* the implied predicted probability of the true class is $e^{-1.495} \approx 0.224$, which matches $e^{1.0}/12.124 = 2.718/12.124 \approx 0.224$ computed directly from softmax — and it is below $1/K = 0.25$, correctly reflecting that the model currently favours class 1 over the true class 2.
 
-*Reasonableness check:* $S = 12$ sits between its theoretical bounds — $S \geq L = 3$ always (since $\lVert W\rVert_F \geq \lVert W\rVert_2$), with equality only for rank-one layers — so a value of 12 for three layers indicates each layer has several comparably-sized singular directions, which is typical of a genuinely wide network.
+> [!example]- Problem 4 — The similarity-based form
+> For the same example as Problem 3, verify the ratio form $\mathcal{L}_{\text{CE}} = \log\left(1 + \sum_{k\neq j} e^{s_k - s_j}\right)$.
+>
+> *Solution.* Using $\delta(z,\psi_k) = -s_k$, the ratio $e^{-\delta(z,\psi_k)}/e^{-\delta(z,\psi_j)} = e^{s_k - s_j}$. With $s_j = 1.0$, the three non-true-class terms are $e^{2.0-1.0} = e^{1.0} \approx 2.718$, $e^{0.5-1.0} = e^{-0.5} \approx 0.607$, and $e^{-1.0-1.0} = e^{-2.0} \approx 0.135$, summing to $3.460$. Adding the leading $1$ and taking the logarithm, $\log(4.460) \approx 1.495$.
+>
+> $$
+> \boxed{\mathcal{L}_{\text{CE}} \approx 1.495 \text{ nats — identical to Problem 3}}
+> $$
+>
+> *Reasonableness check:* the two forms agree exactly, as they must, since the ratio form is obtained from the log-sum-exp form by dividing numerator and denominator by $e^{s_j}$. Note also that the loss is bounded below by $\log 1 = 0$, attained only when every competing logit is infinitely far below $s_j$.
 
-**Problem 2 — Using the generalization bound.** A model trained on $N = 10{,}000$ examples achieves $\text{Loss}_{\text{Train}} = 0.15$, has capacity $\beta\sqrt{S} = 20$, and achieves a margin $\gamma = 0.5$. Bound its test loss. Then determine what margin would be needed to halve the generalization term.
-
-*Solution.* Substituting into the boxed bound of Section 5.2, the generalization term is $\frac{1}{\sqrt{N}}\cdot\frac{\beta\sqrt{S}}{\gamma} = \frac{1}{100}\cdot\frac{20}{0.5} = \frac{40}{100} = 0.4$, so
-
-$$
-\text{Loss}_{\text{Test}} \le 0.15 + 0.4.
-$$
-
-$$
-\boxed{\text{Loss}_{\text{Test}} \le 0.55}
-$$
-
-Because the generalization term is inversely proportional to $\gamma$, halving it requires doubling the margin, $\gamma = 1.0$, giving a generalization term of $0.2$ and a bound of $0.35$.
-
-*Reasonableness check:* the bound $0.55$ exceeds the training loss, as it must — the bound is only useful when the generalization term is small relative to the training loss, which here it is not, signalling that this model is under-regularized for its sample size.
-
-**Problem 3 — Cross-entropy from logits.** A 4-class classifier produces logits $s = (2.0,\, 1.0,\, 0.5,\, -1.0)$ for an example whose true class is $j = 2$ (i.e. the logit $s_2 = 1.0$). Compute $\mathcal{L}_{\text{CE}}$ in nats.
-
-*Solution.* Using the log-sum-exp form $\mathcal{L}_{\text{CE}} = -s_j + \log\sum_k e^{s_k}$, the exponentials are $e^{2.0} \approx 7.389$, $e^{1.0} \approx 2.718$, $e^{0.5} \approx 1.649$, and $e^{-1.0} \approx 0.368$, summing to $12.124$. Taking the natural logarithm, $\log(12.124) \approx 2.495$, and subtracting the true-class logit $s_2 = 1.0$,
-
-$$
-\mathcal{L}_{\text{CE}} = -1.0 + 2.495.
-$$
-
-$$
-\boxed{\mathcal{L}_{\text{CE}} \approx 1.495 \text{ nats}}
-$$
-
-*Reasonableness check:* the implied predicted probability of the true class is $e^{-1.495} \approx 0.224$, which matches $e^{1.0}/12.124 = 2.718/12.124 \approx 0.224$ computed directly from softmax — and it is below $1/K = 0.25$, correctly reflecting that the model currently favours class 1 over the true class 2.
-
-**Problem 4 — The similarity-based form.** For the same example as Problem 3, verify the ratio form $\mathcal{L}_{\text{CE}} = \log\left(1 + \sum_{k\neq j} e^{s_k - s_j}\right)$.
-
-*Solution.* Using $\delta(z,\psi_k) = -s_k$, the ratio $e^{-\delta(z,\psi_k)}/e^{-\delta(z,\psi_j)} = e^{s_k - s_j}$. With $s_j = 1.0$, the three non-true-class terms are $e^{2.0-1.0} = e^{1.0} \approx 2.718$, $e^{0.5-1.0} = e^{-0.5} \approx 0.607$, and $e^{-1.0-1.0} = e^{-2.0} \approx 0.135$, summing to $3.460$. Adding the leading $1$ and taking the logarithm, $\log(4.460) \approx 1.495$.
-
-$$
-\boxed{\mathcal{L}_{\text{CE}} \approx 1.495 \text{ nats — identical to Problem 3}}
-$$
-
-*Reasonableness check:* the two forms agree exactly, as they must, since the ratio form is obtained from the log-sum-exp form by dividing numerator and denominator by $e^{s_j}$. Note also that the loss is bounded below by $\log 1 = 0$, attained only when every competing logit is infinitely far below $s_j$.
-
-**Problem 5 — Covariance matrix from a small sample.** Three 2-dimensional samples are observed: $x^{(1)} = (1,2)^\top$, $x^{(2)} = (3,4)^\top$, $x^{(3)} = (5,0)^\top$. Compute the sample mean $\mu_x$ and the covariance matrix $R_x$ (using the $1/N$ normalization consistent with the definition in Section 8).
-
-*Solution.* The sample mean is the componentwise average, $\mu_x = \frac{1}{3}\left((1,2) + (3,4)(5,0)\right)^\top = (3, 2)^\top$. Centering each sample gives $(-2, 0)^\top$, $(0, 2)^\top$, and $(2, -2)^\top$. Applying $R_x = \frac{1}{N}\sum_i (x^{(i)}-\mu_x)(x^{(i)}-\mu_x)^\top$, the three outer products are
-
-$$
-\begin{bmatrix}4&0\\0&0\end{bmatrix},\qquad
-\begin{bmatrix}0&0\\0&4\end{bmatrix},\qquad
-\begin{bmatrix}4&-4\\-4&4\end{bmatrix};
-$$
-
-summing these and dividing by $3$,
-
-$$
-\boxed{\mu_x = \begin{bmatrix}3\\2\end{bmatrix}, \qquad R_x = \frac{1}{3}\begin{bmatrix}8 & -4 \\ -4 & 8\end{bmatrix} = \begin{bmatrix}8/3 & -4/3 \\ -4/3 & 8/3\end{bmatrix}}
-$$
-
-*Reasonableness check:* $R_x$ is symmetric with positive diagonal entries, as any covariance matrix must be. The negative off-diagonal entry indicates the two dimensions are negatively correlated in this sample — visible directly in the data, where the largest first coordinate ($5$) pairs with the smallest second coordinate ($0$). Per Section 2 of Lecture 2, a covariance matrix like this one (non-zero off-diagonals) is exactly what we do *not* want in a learned latent space.
+> [!example]- Problem 5 — Covariance matrix from a small sample
+> Three 2-dimensional samples are observed: $x^{(1)} = (1,2)^\top$, $x^{(2)} = (3,4)^\top$, $x^{(3)} = (5,0)^\top$. Compute the sample mean $\mu_x$ and the covariance matrix $R_x$ (using the $1/N$ normalization consistent with the definition in Section 8).
+>
+> *Solution.* The sample mean is the componentwise average, $\mu_x = \frac{1}{3}\left((1,2) + (3,4)(5,0)\right)^\top = (3, 2)^\top$. Centering each sample gives $(-2, 0)^\top$, $(0, 2)^\top$, and $(2, -2)^\top$. Applying $R_x = \frac{1}{N}\sum_i (x^{(i)}-\mu_x)(x^{(i)}-\mu_x)^\top$, the three outer products are
+>
+> $$
+> \begin{bmatrix}4&0\\0&0\end{bmatrix},\qquad
+> \begin{bmatrix}0&0\\0&4\end{bmatrix},\qquad
+> \begin{bmatrix}4&-4\\-4&4\end{bmatrix};
+> $$
+>
+> summing these and dividing by $3$,
+>
+> $$
+> \boxed{\mu_x = \begin{bmatrix}3\\2\end{bmatrix}, \qquad R_x = \frac{1}{3}\begin{bmatrix}8 & -4 \\ -4 & 8\end{bmatrix} = \begin{bmatrix}8/3 & -4/3 \\ -4/3 & 8/3\end{bmatrix}}
+> $$
+>
+> *Reasonableness check:* $R_x$ is symmetric with positive diagonal entries, as any covariance matrix must be. The negative off-diagonal entry indicates the two dimensions are negatively correlated in this sample — visible directly in the data, where the largest first coordinate ($5$) pairs with the smallest second coordinate ($0$). Per Section 2 of Lecture 2, a covariance matrix like this one (non-zero off-diagonals) is exactly what we do *not* want in a learned latent space.
 
 ---
 

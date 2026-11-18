@@ -718,127 +718,135 @@ Later lectures reach for these instruments without re-deriving them, so it is wo
 
 ## Numerical Problems
 
-**Problem 1 — Entropy of a discrete distribution.** A discrete random variable $X$ takes $4$ values with probabilities $P(x) = (0.1, 0.2, 0.3, 0.4)$. Compute the entropy $H(X)$ in bits.
+> [!example]- Problem 1 — Entropy of a discrete distribution
+> A discrete random variable $X$ takes $4$ values with probabilities $P(x) = (0.1, 0.2, 0.3, 0.4)$. Compute the entropy $H(X)$ in bits.
+>
+> *Solution.* Applying the entropy definition from Section 3.3, $H(X) = -\sum_x P(x)\log_2 P(x)$, each term is evaluated separately using $\log_2(0.1) \approx -3.3219$, $\log_2(0.2) \approx -2.3219$, $\log_2(0.3)\approx -1.7370$, and $\log_2(0.4)\approx -1.3219$. Multiplying each probability by the negative of its own log and summing,
+>
+> $$
+> H(X) \approx 0.1(3.3219) + 0.2(2.3219) + 0.3(1.7370) + 0.4(1.3219) = 0.3322 + 0.4644 + 0.5211 + 0.5288.
+> $$
+>
+> $$
+> \boxed{H(X) \approx 1.846 \text{ bits}}
+> $$
+>
+> *Reasonableness check:* this is comfortably below the maximum possible entropy for $4$ outcomes, $\log_2 4 = 2$ bits (attained only by the uniform distribution), which is expected since this distribution is somewhat — though not extremely — non-uniform.
 
-*Solution.* Applying the entropy definition from Section 3.3, $H(X) = -\sum_x P(x)\log_2 P(x)$, each term is evaluated separately using $\log_2(0.1) \approx -3.3219$, $\log_2(0.2) \approx -2.3219$, $\log_2(0.3)\approx -1.7370$, and $\log_2(0.4)\approx -1.3219$. Multiplying each probability by the negative of its own log and summing,
+> [!example]- Problem 2 — Information content of a rare event
+> A biased coin lands heads with probability $P(\text{heads}) = 0.05$. Compute the information content (in bits) of observing a heads outcome, and compare it to the information content of a heads outcome from a *fair* coin.
+>
+> *Solution.* Using the definition from Section 3.2, $I = -\log_2 P(x=x_k)$; substituting $P(\text{heads})=0.05$ gives $I = -\log_2(0.05) = \log_2(20)$. Since $\log_2(20) = \log_2(16) + \log_2(1.25) \approx 4 + 0.3219$,
+>
+> $$
+> \boxed{I \approx 4.32 \text{ bits}}
+> $$
+>
+> For a fair coin, $P(\text{heads}) = 0.5$, giving $I_{\text{fair}} = -\log_2(0.5) = 1$ bit.
+>
+> *Reasonableness check:* $4.32 > 1$, confirming the core intuition of Section 3.2 — a rarer outcome is far more surprising, and hence carries far more information, than the same outcome on a fair coin.
 
-$$
-H(X) \approx 0.1(3.3219) + 0.2(2.3219) + 0.3(1.7370) + 0.4(1.3219) = 0.3322 + 0.4644 + 0.5211 + 0.5288.
-$$
+> [!example]- Problem 3 — Forward KL divergence
+> Let $P = (0.6, 0.3, 0.1)$ and $Q = (0.4, 0.4, 0.2)$ over states $\{1,2,3\}$. Compute the forward KL divergence $D_{\mathrm{KL}}(P\|Q)$ in nats.
+>
+> *Solution.* Using the definition from Section 5.2, $D_{\mathrm{KL}}(P\|Q) = \sum_i P_i \ln(P_i/Q_i)$, the three ratios are $P_1/Q_1 = 1.5$, $P_2/Q_2 = 0.75$, and $P_3/Q_3 = 0.5$, with natural logarithms $\ln(1.5)\approx 0.4055$, $\ln(0.75) \approx -0.2877$, and $\ln(0.5) \approx -0.6931$. Weighting each by its corresponding $P_i$ and summing,
+>
+> $$
+> D_{\mathrm{KL}}(P\|Q) \approx 0.6(0.4055) + 0.3(-0.2877) + 0.1(-0.6931) = 0.2433 - 0.0863 - 0.0693.
+> $$
+>
+> $$
+> \boxed{D_{\mathrm{KL}}(P\|Q) \approx 0.0877 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* the value is small and positive, as required for KL divergence between two similar (but not identical) categorical distributions; it is zero only when $P=Q$ exactly.
 
-$$
-\boxed{H(X) \approx 1.846 \text{ bits}}
-$$
+> [!example]- Problem 4 — Reverse KL divergence and asymmetry
+> For the same $P$ and $Q$ as in Problem 3, compute the reverse KL divergence $D_{\mathrm{KL}}(Q\|P)$, and confirm that KL divergence is not symmetric.
+>
+> *Solution.* Using the definition from Section 5.4, $D_{\mathrm{KL}}(Q\|P) = \sum_i Q_i \ln(Q_i/P_i)$, the ratios are $Q_1/P_1 = 0.4/0.6 \approx 0.6667$, $Q_2/P_2 = 0.4/0.3 \approx 1.3333$, and $Q_3/P_3 = 0.2/0.1 = 2$, with logarithms $\ln(0.6667)\approx -0.4055$, $\ln(1.3333)\approx 0.2877$, and $\ln(2) \approx 0.6931$. Weighting by $Q_i$ and summing,
+>
+> $$
+> D_{\mathrm{KL}}(Q\|P) \approx 0.4(-0.4055) + 0.4(0.2877) + 0.2(0.6931) = -0.1622 + 0.1151 + 0.1386.
+> $$
+>
+> $$
+> \boxed{D_{\mathrm{KL}}(Q\|P) \approx 0.0915 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* comparing to Problem 3, $0.0915 \neq 0.0877$ — the two directions give different values for the same pair of distributions, directly confirming the asymmetry of Section 5.4.
 
-*Reasonableness check:* this is comfortably below the maximum possible entropy for $4$ outcomes, $\log_2 4 = 2$ bits (attained only by the uniform distribution), which is expected since this distribution is somewhat — though not extremely — non-uniform.
+> [!example]- Problem 5 — Jensen–Shannon divergence
+> For the same $P = (0.6,0.3,0.1)$ and $Q = (0.4,0.4,0.2)$, compute $\mathrm{JS}(P\|Q)$ in nats and verify that it is finite and symmetric.
+>
+> *Solution.* First form the mixture $M = (P+Q)/2 = (0.5,\, 0.35,\, 0.15)$. For $\mathrm{KL}(P\|M)$, the ratios are $0.6/0.5 = 1.2$, $0.3/0.35 \approx 0.8571$, and $0.1/0.15 \approx 0.6667$, with logs $0.1823$, $-0.1542$, and $-0.4055$; weighting by $P_i$ gives $0.1094 - 0.0463 - 0.0405 \approx 0.0226$. For $\mathrm{KL}(Q\|M)$, the ratios are $0.4/0.5 = 0.8$, $0.4/0.35 \approx 1.1429$, and $0.2/0.15 \approx 1.3333$, with logs $-0.2231$, $0.1335$, and $0.2877$; weighting by $Q_i$ gives $-0.0892 + 0.0534 + 0.0575 \approx 0.0217$. Averaging the two,
+>
+> $$
+> \mathrm{JS}(P\|Q) = \tfrac{1}{2}(0.0226) + \tfrac{1}{2}(0.0217).
+> $$
+>
+> $$
+> \boxed{\mathrm{JS}(P\|Q) \approx 0.0222 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* the value lies between the forward KL ($0.0877$) and zero, as expected since each KL is taken against the *mixture* rather than against the other distribution — which is exactly the mechanism that keeps JS finite. Swapping $P$ and $Q$ leaves $M$ unchanged and merely swaps the two averaged terms, so the result is identical: JS is symmetric.
 
-**Problem 2 — Information content of a rare event.** A biased coin lands heads with probability $P(\text{heads}) = 0.05$. Compute the information content (in bits) of observing a heads outcome, and compare it to the information content of a heads outcome from a *fair* coin.
+> [!example]- Problem 6 — TVD and the Wasserstein-1 distance via optimal transport
+> For $P = (0.6, 0.3, 0.1)$ and $Q = (0.4, 0.4, 0.2)$ at positions $\{1,2,3\}$, compute (a) the Total Variation Distance, and (b) the Wasserstein-1 cost using the $\ell_1$ ground cost $C_{ij} = |i-j|$, by finding the minimum-cost transport plan.
+>
+> *Solution.* (a) Using the definition from Section 6.3, the absolute differences are $|0.6-0.4|=0.2$, $|0.3-0.4|=0.1$, and $|0.1-0.2|=0.1$, giving $\text{TVD} = \tfrac{1}{2}(0.2+0.1+0.1)$.
+>
+> $$
+> \boxed{\text{TVD} = 0.2}
+> $$
+>
+> (b) Comparing $P$ and $Q$ bin by bin, $P$ has a surplus of $0.2$ at bin $1$, while $Q$ has a surplus of $0.1$ at bin $2$ and $0.1$ at bin $3$. The cheapest reconciliation moves $0.1$ units from bin $2$ to bin $1$ (unit cost $C_{21}=1$) and $0.1$ units from bin $3$ to bin $1$ (unit cost $C_{31}=2$), leaving $0.4$, $0.3$, and $0.1$ in place respectively — this plan satisfies both marginal constraints and routes mass only along the shortest available paths. The total transport cost is $(0.1)(1) + (0.1)(2)$.
+>
+> $$
+> \boxed{\langle T^*, C\rangle = 0.3 \;\;\Rightarrow\;\; WD_1 = 0.3 \text{ (or } \sqrt{0.3}\approx 0.548 \text{ under the square-root convention of §7.3)}}
+> $$
+>
+> *Reasonableness check:* the transport cost can be cross-checked with the closed-form shortcut for the $1$-Wasserstein cost on an ordered line — the sum of absolute differences between the two CDFs (cumulative distribution functions): $\text{CDF}_P = (0.6, 0.9, 1.0)$ and $\text{CDF}_Q = (0.4, 0.8, 1.0)$, giving $|0.6-0.4| + |0.9-0.8| = 0.3$, matching exactly. Note also that the raw transport cost $(0.3)$ exceeds the TVD $(0.2)$: unlike TVD, the Wasserstein distance accounts for *how far* mass must travel, not just *how much* differs.
 
-*Solution.* Using the definition from Section 3.2, $I = -\log_2 P(x=x_k)$; substituting $P(\text{heads})=0.05$ gives $I = -\log_2(0.05) = \log_2(20)$. Since $\log_2(20) = \log_2(16) + \log_2(1.25) \approx 4 + 0.3219$,
+> [!example]- Problem 7 — One Sinkhorn iteration
+> Take $\underline{P} = (0.5, 0.5)^\top$, $\underline{q} = (0.5, 0.5)^\top$, cost matrix $C = \begin{bmatrix}0 & 1\\ 1 & 0\end{bmatrix}$, and regularization $\varepsilon = 1$. Form the Gibbs kernel $K$ and perform the first Sinkhorn update for $\underline{u}$.
+>
+> *Solution.* Applying step 1 of the algorithm in Section 7.5, $K = e^{-C/\varepsilon}$ elementwise with $\varepsilon = 1$ gives $K = \begin{bmatrix}e^{0} & e^{-1}\\ e^{-1} & e^{0}\end{bmatrix} = \begin{bmatrix}1 & 0.3679\\ 0.3679 & 1\end{bmatrix}$. Initializing $\underline{v}^0 = (1,1)^\top$, the matrix–vector product is $K\underline{v}^0 = (1.3679,\, 1.3679)^\top$, and the elementwise division $\underline{u}^1 = \underline{P}/(K\underline{v}^0)$ gives
+>
+> $$
+> \boxed{\underline{u}^{1} = \left(\tfrac{0.5}{1.3679},\; \tfrac{0.5}{1.3679}\right)^{\top} \approx (0.3656,\; 0.3656)^{\top}}
+> $$
+>
+> *Reasonableness check:* both components are equal, as they must be by the symmetry of $P$, $q$, and $C$ in this problem. Continuing the iteration would give $\underline{v}^1 = \underline{u}^1$ and converge to a plan $T^* = \operatorname{diag}(u)K\operatorname{diag}(v)$ whose diagonal dominates — mass mostly stays put, which is correct since $P = q$ here and the exact LP optimum is the identity-scaled plan.
 
-$$
-\boxed{I \approx 4.32 \text{ bits}}
-$$
-
-For a fair coin, $P(\text{heads}) = 0.5$, giving $I_{\text{fair}} = -\log_2(0.5) = 1$ bit.
-
-*Reasonableness check:* $4.32 > 1$, confirming the core intuition of Section 3.2 — a rarer outcome is far more surprising, and hence carries far more information, than the same outcome on a fair coin.
-
-**Problem 3 — Forward KL divergence.** Let $P = (0.6, 0.3, 0.1)$ and $Q = (0.4, 0.4, 0.2)$ over states $\{1,2,3\}$. Compute the forward KL divergence $D_{\mathrm{KL}}(P\|Q)$ in nats.
-
-*Solution.* Using the definition from Section 5.2, $D_{\mathrm{KL}}(P\|Q) = \sum_i P_i \ln(P_i/Q_i)$, the three ratios are $P_1/Q_1 = 1.5$, $P_2/Q_2 = 0.75$, and $P_3/Q_3 = 0.5$, with natural logarithms $\ln(1.5)\approx 0.4055$, $\ln(0.75) \approx -0.2877$, and $\ln(0.5) \approx -0.6931$. Weighting each by its corresponding $P_i$ and summing,
-
-$$
-D_{\mathrm{KL}}(P\|Q) \approx 0.6(0.4055) + 0.3(-0.2877) + 0.1(-0.6931) = 0.2433 - 0.0863 - 0.0693.
-$$
-
-$$
-\boxed{D_{\mathrm{KL}}(P\|Q) \approx 0.0877 \text{ nats}}
-$$
-
-*Reasonableness check:* the value is small and positive, as required for KL divergence between two similar (but not identical) categorical distributions; it is zero only when $P=Q$ exactly.
-
-**Problem 4 — Reverse KL divergence and asymmetry.** For the same $P$ and $Q$ as in Problem 3, compute the reverse KL divergence $D_{\mathrm{KL}}(Q\|P)$, and confirm that KL divergence is not symmetric.
-
-*Solution.* Using the definition from Section 5.4, $D_{\mathrm{KL}}(Q\|P) = \sum_i Q_i \ln(Q_i/P_i)$, the ratios are $Q_1/P_1 = 0.4/0.6 \approx 0.6667$, $Q_2/P_2 = 0.4/0.3 \approx 1.3333$, and $Q_3/P_3 = 0.2/0.1 = 2$, with logarithms $\ln(0.6667)\approx -0.4055$, $\ln(1.3333)\approx 0.2877$, and $\ln(2) \approx 0.6931$. Weighting by $Q_i$ and summing,
-
-$$
-D_{\mathrm{KL}}(Q\|P) \approx 0.4(-0.4055) + 0.4(0.2877) + 0.2(0.6931) = -0.1622 + 0.1151 + 0.1386.
-$$
-
-$$
-\boxed{D_{\mathrm{KL}}(Q\|P) \approx 0.0915 \text{ nats}}
-$$
-
-*Reasonableness check:* comparing to Problem 3, $0.0915 \neq 0.0877$ — the two directions give different values for the same pair of distributions, directly confirming the asymmetry of Section 5.4.
-
-**Problem 5 — Jensen–Shannon divergence.** For the same $P = (0.6,0.3,0.1)$ and $Q = (0.4,0.4,0.2)$, compute $\mathrm{JS}(P\|Q)$ in nats and verify that it is finite and symmetric.
-
-*Solution.* First form the mixture $M = (P+Q)/2 = (0.5,\, 0.35,\, 0.15)$. For $\mathrm{KL}(P\|M)$, the ratios are $0.6/0.5 = 1.2$, $0.3/0.35 \approx 0.8571$, and $0.1/0.15 \approx 0.6667$, with logs $0.1823$, $-0.1542$, and $-0.4055$; weighting by $P_i$ gives $0.1094 - 0.0463 - 0.0405 \approx 0.0226$. For $\mathrm{KL}(Q\|M)$, the ratios are $0.4/0.5 = 0.8$, $0.4/0.35 \approx 1.1429$, and $0.2/0.15 \approx 1.3333$, with logs $-0.2231$, $0.1335$, and $0.2877$; weighting by $Q_i$ gives $-0.0892 + 0.0534 + 0.0575 \approx 0.0217$. Averaging the two,
-
-$$
-\mathrm{JS}(P\|Q) = \tfrac{1}{2}(0.0226) + \tfrac{1}{2}(0.0217).
-$$
-
-$$
-\boxed{\mathrm{JS}(P\|Q) \approx 0.0222 \text{ nats}}
-$$
-
-*Reasonableness check:* the value lies between the forward KL ($0.0877$) and zero, as expected since each KL is taken against the *mixture* rather than against the other distribution — which is exactly the mechanism that keeps JS finite. Swapping $P$ and $Q$ leaves $M$ unchanged and merely swaps the two averaged terms, so the result is identical: JS is symmetric.
-
-**Problem 6 — TVD and the Wasserstein-1 distance via optimal transport.** For $P = (0.6, 0.3, 0.1)$ and $Q = (0.4, 0.4, 0.2)$ at positions $\{1,2,3\}$, compute (a) the Total Variation Distance, and (b) the Wasserstein-1 cost using the $\ell_1$ ground cost $C_{ij} = |i-j|$, by finding the minimum-cost transport plan.
-
-*Solution.* (a) Using the definition from Section 6.3, the absolute differences are $|0.6-0.4|=0.2$, $|0.3-0.4|=0.1$, and $|0.1-0.2|=0.1$, giving $\text{TVD} = \tfrac{1}{2}(0.2+0.1+0.1)$.
-
-$$
-\boxed{\text{TVD} = 0.2}
-$$
-
-(b) Comparing $P$ and $Q$ bin by bin, $P$ has a surplus of $0.2$ at bin $1$, while $Q$ has a surplus of $0.1$ at bin $2$ and $0.1$ at bin $3$. The cheapest reconciliation moves $0.1$ units from bin $2$ to bin $1$ (unit cost $C_{21}=1$) and $0.1$ units from bin $3$ to bin $1$ (unit cost $C_{31}=2$), leaving $0.4$, $0.3$, and $0.1$ in place respectively — this plan satisfies both marginal constraints and routes mass only along the shortest available paths. The total transport cost is $(0.1)(1) + (0.1)(2)$.
-
-$$
-\boxed{\langle T^*, C\rangle = 0.3 \;\;\Rightarrow\;\; WD_1 = 0.3 \text{ (or } \sqrt{0.3}\approx 0.548 \text{ under the square-root convention of §7.3)}}
-$$
-
-*Reasonableness check:* the transport cost can be cross-checked with the closed-form shortcut for the $1$-Wasserstein cost on an ordered line — the sum of absolute differences between the two CDFs (cumulative distribution functions): $\text{CDF}_P = (0.6, 0.9, 1.0)$ and $\text{CDF}_Q = (0.4, 0.8, 1.0)$, giving $|0.6-0.4| + |0.9-0.8| = 0.3$, matching exactly. Note also that the raw transport cost $(0.3)$ exceeds the TVD $(0.2)$: unlike TVD, the Wasserstein distance accounts for *how far* mass must travel, not just *how much* differs.
-
-**Problem 7 — One Sinkhorn iteration.** Take $\underline{P} = (0.5, 0.5)^\top$, $\underline{q} = (0.5, 0.5)^\top$, cost matrix $C = \begin{bmatrix}0 & 1\\ 1 & 0\end{bmatrix}$, and regularization $\varepsilon = 1$. Form the Gibbs kernel $K$ and perform the first Sinkhorn update for $\underline{u}$.
-
-*Solution.* Applying step 1 of the algorithm in Section 7.5, $K = e^{-C/\varepsilon}$ elementwise with $\varepsilon = 1$ gives $K = \begin{bmatrix}e^{0} & e^{-1}\\ e^{-1} & e^{0}\end{bmatrix} = \begin{bmatrix}1 & 0.3679\\ 0.3679 & 1\end{bmatrix}$. Initializing $\underline{v}^0 = (1,1)^\top$, the matrix–vector product is $K\underline{v}^0 = (1.3679,\, 1.3679)^\top$, and the elementwise division $\underline{u}^1 = \underline{P}/(K\underline{v}^0)$ gives
-
-$$
-\boxed{\underline{u}^{1} = \left(\tfrac{0.5}{1.3679},\; \tfrac{0.5}{1.3679}\right)^{\top} \approx (0.3656,\; 0.3656)^{\top}}
-$$
-
-*Reasonableness check:* both components are equal, as they must be by the symmetry of $P$, $q$, and $C$ in this problem. Continuing the iteration would give $\underline{v}^1 = \underline{u}^1$ and converge to a plan $T^* = \operatorname{diag}(u)K\operatorname{diag}(v)$ whose diagonal dominates — mass mostly stays put, which is correct since $P = q$ here and the exact LP optimum is the identity-scaled plan.
-
-**Problem 8 — Shape and properties of a 2-D Gaussian.** Let $x \sim \mathcal{N}(0, \Sigma)$ with $\Sigma = \begin{bmatrix} 3 & 1 \\ 1 & 3\end{bmatrix}$. (a) Find the principal axes and semi-axis lengths of the Mahalanobis-radius-1 ellipse, and the correlation coefficient. (b) Compare the Mahalanobis distances of $a = (2, 2)^{\top}$ and $b = (2, -2)^{\top}$ from the mean. (c) Compute the entropy in nats. (d) Find the conditional distribution of $x_2$ given $x_1 = 3$.
-
-*Solution.* (a) The characteristic equation $(3-\lambda)^2 - 1 = 0$ gives $\lambda_1 = 4$ and $\lambda_2 = 2$, with unit eigenvectors $u_1 = \tfrac{1}{\sqrt2}(1, 1)^{\top}$ and $u_2 = \tfrac{1}{\sqrt2}(1,-1)^{\top}$. By Section 2.3 the semi-axes are $\sqrt{\lambda_i}$ along $u_i$, and the correlation is $\rho = \sigma_{12}/(\sigma_1\sigma_2) = 1/3$.
-
-$$
-\boxed{\text{major semi-axis } 2 \text{ along } (1,1)/\sqrt2, \quad \text{minor semi-axis } \sqrt2 \approx 1.414 \text{ along } (1,-1)/\sqrt2, \quad \rho = 1/3}
-$$
-
-(b) Since $\lvert\Sigma\rvert = 9 - 1 = 8$, the inverse is $\Sigma^{-1} = \tfrac18\begin{bmatrix}3 & -1\\ -1 & 3\end{bmatrix}$. Evaluating the quadratic form, $a^{\top}\Sigma^{-1}a = \tfrac18(12 - 8 + 12) = 2$ and $b^{\top}\Sigma^{-1}b = \tfrac18(12 + 8 + 12) = 4$.
-
-$$
-\boxed{d_M(a) = \sqrt2 \approx 1.414, \qquad d_M(b) = 2}
-$$
-
-(c) By property 5, $H = \tfrac12\ln\big((2\pi e)^2 \cdot 8\big) = \ln(2\pi e) + \tfrac12\ln 8 \approx 2.838 + 1.040$.
-
-$$
-\boxed{H \approx 3.878 \text{ nats}}
-$$
-
-(d) By property 3 with scalar blocks, the conditional mean is $0 + \tfrac{1}{3}(3 - 0) = 1$ and the conditional variance is $3 - \tfrac{1\cdot 1}{3} = \tfrac83$.
-
-$$
-\boxed{x_2 \mid x_1 = 3 \;\sim\; \mathcal{N}\!\left(1,\; \tfrac{8}{3}\right)}
-$$
-
-*Reasonableness check:* $a$ and $b$ are equidistant from the origin in Euclidean terms ($2\sqrt2$ each), yet $a$ lies along the major axis, where the distribution is spread wide, and so is Mahalanobis-closer — exactly the effect of measuring distance in units of the distribution's own spread. The uncorrelated Gaussian with the same variances, $\operatorname{diag}(3,3)$, has determinant $9 > 8$ and so entropy $\tfrac12\ln 9 - \tfrac12\ln 8 \approx 0.059$ nats higher, consistent with Hadamard's inequality; and the conditional variance $8/3 < 3$ confirms that observing a correlated coordinate reduces uncertainty, by an amount independent of the observed value.
+> [!example]- Problem 8 — Shape and properties of a 2-D Gaussian
+> Let $x \sim \mathcal{N}(0, \Sigma)$ with $\Sigma = \begin{bmatrix} 3 & 1 \\ 1 & 3\end{bmatrix}$. (a) Find the principal axes and semi-axis lengths of the Mahalanobis-radius-1 ellipse, and the correlation coefficient. (b) Compare the Mahalanobis distances of $a = (2, 2)^{\top}$ and $b = (2, -2)^{\top}$ from the mean. (c) Compute the entropy in nats. (d) Find the conditional distribution of $x_2$ given $x_1 = 3$.
+>
+> *Solution.* (a) The characteristic equation $(3-\lambda)^2 - 1 = 0$ gives $\lambda_1 = 4$ and $\lambda_2 = 2$, with unit eigenvectors $u_1 = \tfrac{1}{\sqrt2}(1, 1)^{\top}$ and $u_2 = \tfrac{1}{\sqrt2}(1,-1)^{\top}$. By Section 2.3 the semi-axes are $\sqrt{\lambda_i}$ along $u_i$, and the correlation is $\rho = \sigma_{12}/(\sigma_1\sigma_2) = 1/3$.
+>
+> $$
+> \boxed{\text{major semi-axis } 2 \text{ along } (1,1)/\sqrt2, \quad \text{minor semi-axis } \sqrt2 \approx 1.414 \text{ along } (1,-1)/\sqrt2, \quad \rho = 1/3}
+> $$
+>
+> (b) Since $\lvert\Sigma\rvert = 9 - 1 = 8$, the inverse is $\Sigma^{-1} = \tfrac18\begin{bmatrix}3 & -1\\ -1 & 3\end{bmatrix}$. Evaluating the quadratic form, $a^{\top}\Sigma^{-1}a = \tfrac18(12 - 8 + 12) = 2$ and $b^{\top}\Sigma^{-1}b = \tfrac18(12 + 8 + 12) = 4$.
+>
+> $$
+> \boxed{d_M(a) = \sqrt2 \approx 1.414, \qquad d_M(b) = 2}
+> $$
+>
+> (c) By property 5, $H = \tfrac12\ln\big((2\pi e)^2 \cdot 8\big) = \ln(2\pi e) + \tfrac12\ln 8 \approx 2.838 + 1.040$.
+>
+> $$
+> \boxed{H \approx 3.878 \text{ nats}}
+> $$
+>
+> (d) By property 3 with scalar blocks, the conditional mean is $0 + \tfrac{1}{3}(3 - 0) = 1$ and the conditional variance is $3 - \tfrac{1\cdot 1}{3} = \tfrac83$.
+>
+> $$
+> \boxed{x_2 \mid x_1 = 3 \;\sim\; \mathcal{N}\!\left(1,\; \tfrac{8}{3}\right)}
+> $$
+>
+> *Reasonableness check:* $a$ and $b$ are equidistant from the origin in Euclidean terms ($2\sqrt2$ each), yet $a$ lies along the major axis, where the distribution is spread wide, and so is Mahalanobis-closer — exactly the effect of measuring distance in units of the distribution's own spread. The uncorrelated Gaussian with the same variances, $\operatorname{diag}(3,3)$, has determinant $9 > 8$ and so entropy $\tfrac12\ln 9 - \tfrac12\ln 8 \approx 0.059$ nats higher, consistent with Hadamard's inequality; and the conditional variance $8/3 < 3$ confirms that observing a correlated coordinate reduces uncertainty, by an amount independent of the observed value.
 
 ---
 

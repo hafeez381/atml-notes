@@ -725,71 +725,77 @@ Two threads carry into Module II. The first is diagnostic: Section 4 established
 
 ## Numerical Problems
 
-**Problem 1 — GAN value function at three operating points.** Compute $V(G,D)$ for (a) a perfect discriminator, $D(x) = 1$ and $D(G(z)) = 0$; (b) the equilibrium, $D(x) = D(G(z)) = 0.5$; and (c) an intermediate state, $D(x) = 0.8$, $D(G(z)) = 0.3$. Use natural logarithms.
+> [!example]- Problem 1 — GAN value function at three operating points
+> Compute $V(G,D)$ for (a) a perfect discriminator, $D(x) = 1$ and $D(G(z)) = 0$; (b) the equilibrium, $D(x) = D(G(z)) = 0.5$; and (c) an intermediate state, $D(x) = 0.8$, $D(G(z)) = 0.3$. Use natural logarithms.
+>
+> *Solution.* Applying $V(G,D) = \mathbb{E}_{P(x)}[\log D(x)] + \mathbb{E}_{P(z)}[\log(1-D(G(z)))]$ from Section 1.3 pointwise:
+>
+> (a) $V_{(a)} = \log(1) + \log(1-0) = 0 + 0 = 0$. (Discriminator wins - the maximum)
+> (b) $V_{(b)} = \log(0.5) + \log(0.5) = -0.6931 - 0.6931=-1.387$. (Equilibrium, generator wins)
+> (c) $V_{(c)} = \log(0.8) + \log(0.7) = -0.2231 - 0.3567=-0.590$.
+>
+> *Reasonableness check:* all three values are $\le 0$, as required by Section 1.5, and they order correctly — the intermediate state sits between the discriminator's best case ($0$) and the equilibrium ($-1.386$), consistent with a discriminator that is doing well but not perfectly.
 
-*Solution.* Applying $V(G,D) = \mathbb{E}_{P(x)}[\log D(x)] + \mathbb{E}_{P(z)}[\log(1-D(G(z)))]$ from Section 1.3 pointwise:
+> [!example]- Problem 2 — Saturating vs. non-saturating generator gradients
+> Early in training the discriminator is confident, $D(\hat{x}) = 0.05$. Compare the magnitude of $\left|\frac{\partial}{\partial D(\hat{x})}\right|$ for the saturating objective $\log(1-D(\hat{x}))$ and the non-saturating objective $-\log D(\hat{x})$.
+>
+> *Solution.* Differentiating each with respect to $u = D(\hat x)$: for the saturating form, $\frac{d}{du}\log(1-u) = \frac{-1}{1-u}$, whose magnitude at $u = 0.05$ is $\frac{1}{0.95} \approx 1.053$. For the non-saturating form, $\frac{d}{du}\big(-\log u\big) = \frac{-1}{u}$, whose magnitude at $u = 0.05$ is $\frac{1}{0.05} = 20$.
+>
+> $$
+> \boxed{\left|\text{saturating}\right| \approx 1.05, \qquad \left|\text{non-saturating}\right| = 20, \qquad \text{ratio} \approx 19\times}
+> $$
+>
+> *Reasonableness check:* the non-saturating gradient is nearly twenty times larger exactly in the regime where the generator is losing badly, which is the quantitative content of Section 1.7. As $D(\hat x) \to 0$ the saturating gradient tends to $1$ while the non-saturating one diverges — the generator that needs help most gets it only in the second formulation.
 
-(a) $V_{(a)} = \log(1) + \log(1-0) = 0 + 0 = 0$. (Discriminator wins - the maximum)
-(b) $V_{(b)} = \log(0.5) + \log(0.5) = -0.6931 - 0.6931=-1.387$. (Equilibrium, generator wins)
-(c) $V_{(c)} = \log(0.8) + \log(0.7) = -0.2231 - 0.3567=-0.590$.
+> [!example]- Problem 3 — Receptive field growth through depth and pooling
+> A CNN applies three $3\times3$ convolutions (stride 1, no pooling), then a $2\times2$ max-pool with stride $2$, then two more $3\times3$ convolutions. Compute the theoretical RF after each stage, using the rules of Sections 5.2–5.3 (each conv layer adds the kernel size; pooling multiplies).
+>
+> *Solution.* Treating the RF as a linear side-length and applying the additive rule for convolution — an extra $3\times3$ layer extends the RF by $2$ on each side, i.e. $\text{RF} \to \text{RF} + (F-1)$ — the first three layers give $\text{RF} = 3$, then $5$, then $7$. The $2\times2$ stride-2 pool multiplies the linear RF by $2$, giving $\text{RF} = 14$. The final two convolutions each add $(F-1)\times\text{stride factor} = 2\times2 = 4$ in input pixels, giving $18$ then $22$.
+>
+> $$
+> \boxed{3 \to 5 \to 7 \;\xrightarrow{\text{pool}}\; 14 \to 18 \to 22 \text{ (linear); area } 22^2 = 484 \text{ pixels}}
+> $$
+>
+> *Reasonableness check:* the single pooling layer contributes more RF growth than the three convolutions that preceded it — which is precisely the multiplicative-vs-additive distinction of Section 5.3. The ERF (Section 5.4) is a Gaussian-weighted fraction of this $22\times22$ window, so the *usable* context is considerably smaller than $484$ pixels.
 
-*Reasonableness check:* all three values are $\le 0$, as required by Section 1.5, and they order correctly — the intermediate state sits between the discriminator's best case ($0$) and the equilibrium ($-1.386$), consistent with a discriminator that is doing well but not perfectly.
+> [!example]- Problem 4 — Attention vs. convolution cost
+> For a $224\times224$ feature map, compare the cost of a convolution ($O(H_1 W_1)$) against self-attention over per-pixel tokens ($O(H^2W^2)$). Then repeat with $16\times16$ patch tokens.
+>
+> *Solution.* Applying the scalings of Section 5.7, the convolution cost is proportional to $224 \times 224 = 50{,}176$. Per-pixel attention has $N = 50{,}176$ tokens, so its cost is proportional to $N^2 = 50{,}176^2 \approx 2.52\times10^{9}$ — a ratio of about $50{,}176:1$. With $16\times16$ patches, $N = (224/16)^2 = 196$, so attention costs $196^2 = 38{,}416$.
+>
+> $$
+> \boxed{\text{per-pixel attention} \approx 2.52\times10^{9} \;\text{vs}\; \text{conv} \approx 5.0\times10^{4}; \quad \text{patch attention} \approx 3.8\times10^{4}}
+> $$
+>
+> *Reasonableness check:* patchifying brings attention *below* the convolution cost, which is the entire engineering reason ViTs operate on $16\times16$ patches rather than pixels. It also shows why the quadratic term only bites when $N$ is large — the asymptotic penalty is real but the constant matters enormously in practice.
 
-**Problem 2 — Saturating vs. non-saturating generator gradients.** Early in training the discriminator is confident, $D(\hat{x}) = 0.05$. Compare the magnitude of $\left|\frac{\partial}{\partial D(\hat{x})}\right|$ for the saturating objective $\log(1-D(\hat{x}))$ and the non-saturating objective $-\log D(\hat{x})$.
+> [!example]- Problem 5 — Shape bias and texture bias from cue-conflict counts
+> A model is evaluated on $500$ cue-conflict images. It produces $400$ recognitions matching one of the two constituent classes; of these, $120$ match the shape class and $280$ match the texture class. Compute SB and TB, and classify the model against the landscape of Section 4.2.
+>
+> *Solution.* Applying the definitions of Section 4.1, the denominator for both is the number of correct recognitions, $400$. Then $\text{SB} = 120/400 = 0.30$ and $\text{TB} = 280/400 = 0.70$.
+>
+> $$
+> \boxed{\text{SB} = 0.30, \quad \text{TB} = 0.70, \quad \text{SB} + \text{TB} = 1}
+> $$
+>
+> *Reasonableness check:* both lie in $[0,1]$ as required, and they sum to $1$ because on cue-conflict images every correct recognition must match either the shape class or the texture class. An SB of $0.30$ against a TB of $0.70$ places this model firmly on the CNN end of the chart in Section 4.2 — far from the human position, which sits near $\text{SB} \approx 1$.
 
-*Solution.* Differentiating each with respect to $u = D(\hat x)$: for the saturating form, $\frac{d}{du}\log(1-u) = \frac{-1}{1-u}$, whose magnitude at $u = 0.05$ is $\frac{1}{0.95} \approx 1.053$. For the non-saturating form, $\frac{d}{du}\big(-\log u\big) = \frac{-1}{u}$, whose magnitude at $u = 0.05$ is $\frac{1}{0.05} = 20$.
-
-$$
-\boxed{\left|\text{saturating}\right| \approx 1.05, \qquad \left|\text{non-saturating}\right| = 20, \qquad \text{ratio} \approx 19\times}
-$$
-
-*Reasonableness check:* the non-saturating gradient is nearly twenty times larger exactly in the regime where the generator is losing badly, which is the quantitative content of Section 1.7. As $D(\hat x) \to 0$ the saturating gradient tends to $1$ while the non-saturating one diverges — the generator that needs help most gets it only in the second formulation.
-
-**Problem 3 — Receptive field growth through depth and pooling.** A CNN applies three $3\times3$ convolutions (stride 1, no pooling), then a $2\times2$ max-pool with stride $2$, then two more $3\times3$ convolutions. Compute the theoretical RF after each stage, using the rules of Sections 5.2–5.3 (each conv layer adds the kernel size; pooling multiplies).
-
-*Solution.* Treating the RF as a linear side-length and applying the additive rule for convolution — an extra $3\times3$ layer extends the RF by $2$ on each side, i.e. $\text{RF} \to \text{RF} + (F-1)$ — the first three layers give $\text{RF} = 3$, then $5$, then $7$. The $2\times2$ stride-2 pool multiplies the linear RF by $2$, giving $\text{RF} = 14$. The final two convolutions each add $(F-1)\times\text{stride factor} = 2\times2 = 4$ in input pixels, giving $18$ then $22$.
-
-$$
-\boxed{3 \to 5 \to 7 \;\xrightarrow{\text{pool}}\; 14 \to 18 \to 22 \text{ (linear); area } 22^2 = 484 \text{ pixels}}
-$$
-
-*Reasonableness check:* the single pooling layer contributes more RF growth than the three convolutions that preceded it — which is precisely the multiplicative-vs-additive distinction of Section 5.3. The ERF (Section 5.4) is a Gaussian-weighted fraction of this $22\times22$ window, so the *usable* context is considerably smaller than $484$ pixels.
-
-**Problem 4 — Attention vs. convolution cost.** For a $224\times224$ feature map, compare the cost of a convolution ($O(H_1 W_1)$) against self-attention over per-pixel tokens ($O(H^2W^2)$). Then repeat with $16\times16$ patch tokens.
-
-*Solution.* Applying the scalings of Section 5.7, the convolution cost is proportional to $224 \times 224 = 50{,}176$. Per-pixel attention has $N = 50{,}176$ tokens, so its cost is proportional to $N^2 = 50{,}176^2 \approx 2.52\times10^{9}$ — a ratio of about $50{,}176:1$. With $16\times16$ patches, $N = (224/16)^2 = 196$, so attention costs $196^2 = 38{,}416$.
-
-$$
-\boxed{\text{per-pixel attention} \approx 2.52\times10^{9} \;\text{vs}\; \text{conv} \approx 5.0\times10^{4}; \quad \text{patch attention} \approx 3.8\times10^{4}}
-$$
-
-*Reasonableness check:* patchifying brings attention *below* the convolution cost, which is the entire engineering reason ViTs operate on $16\times16$ patches rather than pixels. It also shows why the quadratic term only bites when $N$ is large — the asymptotic penalty is real but the constant matters enormously in practice.
-
-**Problem 5 — Shape bias and texture bias from cue-conflict counts.** A model is evaluated on $500$ cue-conflict images. It produces $400$ recognitions matching one of the two constituent classes; of these, $120$ match the shape class and $280$ match the texture class. Compute SB and TB, and classify the model against the landscape of Section 4.2.
-
-*Solution.* Applying the definitions of Section 4.1, the denominator for both is the number of correct recognitions, $400$. Then $\text{SB} = 120/400 = 0.30$ and $\text{TB} = 280/400 = 0.70$.
-
-$$
-\boxed{\text{SB} = 0.30, \quad \text{TB} = 0.70, \quad \text{SB} + \text{TB} = 1}
-$$
-
-*Reasonableness check:* both lie in $[0,1]$ as required, and they sum to $1$ because on cue-conflict images every correct recognition must match either the shape class or the texture class. An SB of $0.30$ against a TB of $0.70$ places this model firmly on the CNN end of the chart in Section 4.2 — far from the human position, which sits near $\text{SB} \approx 1$.
-
-**Problem 6 — Verifying permutation equivariance on a $3\times3$ example.** Let $P_\pi = \begin{bmatrix}0&1&0\\0&0&1\\1&0&0\end{bmatrix}$ be the permutation matrix from Section 6.3. Verify that $P_\pi P_\pi^{\top} = I$, and determine which permutation of columns $T_\pi(X) = XP_\pi$ performs when $X = [\,c_1 \;\; c_2 \;\; c_3\,]$.
-
-*Solution.* Computing $P_\pi P_\pi^\top$: each row of $P_\pi$ is a distinct standard basis vector, so the $(i,j)$ entry of the product is the inner product of rows $i$ and $j$, which is $1$ when $i = j$ and $0$ otherwise.
-
-$$
-\boxed{P_\pi P_\pi^{\top} = I \;\Longrightarrow\; P_\pi^{-1} = P_\pi^{\top}}
-$$
-
-For the column action, the $j$-th column of $XP_\pi$ is $X$ times the $j$-th column of $P_\pi$. Column 1 of $P_\pi$ is $(0,0,1)^\top$, selecting $c_3$; column 2 is $(1,0,0)^\top$, selecting $c_1$; column 3 is $(0,1,0)^\top$, selecting $c_2$.
-
-$$
-\boxed{XP_\pi = [\,c_3 \;\; c_1 \;\; c_2\,] \quad \text{— a cyclic right-shift of the tokens}}
-$$
-
-*Reasonableness check:* orthogonality is what makes the cancellation in Section 6.3 work, and it holds for every permutation matrix, so the P.I. result for the learnable-query operator is general rather than specific to this $\pi$. Applying the same $P_\pi$ three times returns the original ordering, consistent with a 3-cycle.
+> [!example]- Problem 6 — Verifying permutation equivariance on a $3\times3$ example
+> Let $P_\pi = \begin{bmatrix}0&1&0\\0&0&1\\1&0&0\end{bmatrix}$ be the permutation matrix from Section 6.3. Verify that $P_\pi P_\pi^{\top} = I$, and determine which permutation of columns $T_\pi(X) = XP_\pi$ performs when $X = [\,c_1 \;\; c_2 \;\; c_3\,]$.
+>
+> *Solution.* Computing $P_\pi P_\pi^\top$: each row of $P_\pi$ is a distinct standard basis vector, so the $(i,j)$ entry of the product is the inner product of rows $i$ and $j$, which is $1$ when $i = j$ and $0$ otherwise.
+>
+> $$
+> \boxed{P_\pi P_\pi^{\top} = I \;\Longrightarrow\; P_\pi^{-1} = P_\pi^{\top}}
+> $$
+>
+> For the column action, the $j$-th column of $XP_\pi$ is $X$ times the $j$-th column of $P_\pi$. Column 1 of $P_\pi$ is $(0,0,1)^\top$, selecting $c_3$; column 2 is $(1,0,0)^\top$, selecting $c_1$; column 3 is $(0,1,0)^\top$, selecting $c_2$.
+>
+> $$
+> \boxed{XP_\pi = [\,c_3 \;\; c_1 \;\; c_2\,] \quad \text{— a cyclic right-shift of the tokens}}
+> $$
+>
+> *Reasonableness check:* orthogonality is what makes the cancellation in Section 6.3 work, and it holds for every permutation matrix, so the P.I. result for the learnable-query operator is general rather than specific to this $\pi$. Applying the same $P_\pi$ three times returns the original ordering, consistent with a 3-cycle.
 
 ---
 

@@ -901,83 +901,89 @@ The three families share one structure: each targets an intractable information-
 
 ## Numerical Problems
 
-**Problem 1 — CNN output dimensions.** An input of shape $224 \times 224 \times 3$ passes through a convolutional layer with $C_2 = 64$ kernels of size $F = 7$, padding $P = 3$, and stride $S = 2$. Give the output shape. Then give the shape after a second layer with $F = 3$, $P = 1$, $S = 2$, and $C_2 = 128$.
+> [!example]- Problem 1 — CNN output dimensions
+> An input of shape $224 \times 224 \times 3$ passes through a convolutional layer with $C_2 = 64$ kernels of size $F = 7$, padding $P = 3$, and stride $S = 2$. Give the output shape. Then give the shape after a second layer with $F = 3$, $P = 1$, $S = 2$, and $C_2 = 128$.
+>
+> *Solution.* Applying the formula of Section 2.5, $H_2 = \lfloor (H_1 + 2P - F)/S\rfloor + 1$, the first layer gives $\lfloor (224 + 6 - 7)/2 \rfloor + 1 = \lfloor 223/2\rfloor + 1 = 111 + 1 = 112$, and identically for the width, with the channel count set by the kernel count.
+>
+> $$
+> \boxed{\text{After layer 1: } 112 \times 112 \times 64}
+> $$
+>
+> Feeding that in, the second layer gives $\lfloor (112 + 2 - 3)/2\rfloor + 1 = \lfloor 111/2\rfloor+ 1 = 55 + 1 = 56$.
+>
+> $$
+> \boxed{\text{After layer 2: } 56 \times 56 \times 128}
+> $$
+>
+> *Reasonableness check:* each stride-2 layer roughly halves the spatial dimensions while doubling the channels — the standard resolution-for-depth trade in CNN design, and it keeps the per-layer activation volume roughly constant.
 
-*Solution.* Applying the formula of Section 2.5, $H_2 = \lfloor (H_1 + 2P - F)/S\rfloor + 1$, the first layer gives $\lfloor (224 + 6 - 7)/2 \rfloor + 1 = \lfloor 223/2\rfloor + 1 = 111 + 1 = 112$, and identically for the width, with the channel count set by the kernel count.
+> [!example]- Problem 2 — ViT tokenization dimensions
+> A ViT processes $224 \times 224 \times 3$ images with patch size $P = 16$ and embedding dimension $D = 768$, using a CLS token. Compute $N_P$, the flattened patch dimension, the shape of $W_E$, the shape of $x_0$, and the shape of $X$.
+>
+> *Solution.* From Section 2.6, the patch count is $N_P = (224/16)\times(224/16) = 14 \times 14 = 196$. Each patch flattens to $P^2 C_1 = 16^2 \times 3 = 768$ entries, so $x_{\text{flat}} \in \mathbb{R}^{196 \times 768}$ and the embedding matrix has shape $W_E \in \mathbb{R}^{P^2C_1 \times D} = \mathbb{R}^{768 \times 768}$. Prepending the CLS token adds one row, giving $x_0 \in \mathbb{R}^{197\times768}$, and transposing gives $X = x_0^\top$.
+>
+> $$
+> \boxed{N_P = 196, \quad P^2C_1 = 768, \quad W_E: 768\times768, \quad x_0: 197\times768, \quad X: 768 \times 197}
+> $$
+>
+> *Reasonableness check:* the coincidence $P^2C_1 = D = 768$ is specific to ViT-Base with $16\times16$ patches and is why its patch-embedding matrix is square; with $P = 32$ the flattened dimension would be $3072$ and $W_E$ would be $3072 \times 768$, decidedly non-square.
 
-$$
-\boxed{\text{After layer 1: } 112 \times 112 \times 64}
-$$
+> [!example]- Problem 3 — Attention matrix and context vector
+> A single-head attention layer has $N = 3$ tokens and $D = 4$. For query $q_1$, the raw scores against the three keys are $e = (2.0,\, 1.0,\, 0.0)$, and the value vectors are $v_1 = (1,0,0,0)$, $v_2 = (0,1,0,0)$, $v_3 = (0,0,1,0)$. Compute the attention weights (ignoring the $\sqrt{D}$ scaling) and the context vector $c_1$.
+>
+> *Solution.* Applying the align function of Section 2.9, $a = \text{softmax}(e)$: the exponentials are $e^{2.0} \approx 7.389$, $e^{1.0}\approx 2.718$, $e^{0.0} = 1$, summing to $11.107$. Dividing each by the sum gives $a \approx (0.665,\, 0.245,\, 0.090)$. The context vector is the weighted sum $c_1 = \sum_\ell a_\ell v_\ell$, and since the values here are the first three standard basis vectors, the weights land directly in the corresponding coordinates:
+>
+> $$
+> \boxed{a \approx (0.665,\, 0.245,\, 0.090), \qquad c_1 \approx (0.665,\, 0.245,\, 0.090,\, 0)^{\top}}
+> $$
+>
+> *Reasonableness check:* the weights sum to $1$ as a softmax must, and the fourth coordinate of $c_1$ is exactly zero because no value vector has any mass there — attention can only produce outputs in the span of the value vectors, never outside it.
 
-Feeding that in, the second layer gives $\lfloor (112 + 2 - 3)/2\rfloor + 1 = \lfloor 111/2\rfloor+ 1 = 55 + 1 = 56$.
+> [!example]- Problem 4 — InfoNCE and its mutual-information bound
+> In a batch of $N = 256$, an anchor has cosine similarity $0.9$ with its positive and cosine similarity $0.1$ with each of the $255$ negatives, all scaled by an inverse temperature of $10$. Compute $\mathcal{L}_{\text{InfoNCE}}$ and the resulting lower bound on $I(z_1, z_1^+)$ in nats.
+>
+> *Solution.* After scaling, the positive logit is $10 \times 0.9 = 9$ and each negative logit is $10 \times 0.1 = 1$. Applying the definition in Section 3.2, the numerator is $e^{9} \approx 8103.1$ and the denominator is $e^9 + 255e^1 \approx 8103.1 + 255(2.718) = 8103.1 + 693.1 = 8796.2$. Therefore $\mathcal{L}_{\text{InfoNCE}} = -\log(8103.1/8796.2) = -\log(0.9212) \approx 0.0821$.
+>
+> $$
+> \boxed{\mathcal{L}_{\text{InfoNCE}} \approx 0.082 \text{ nats}}
+> $$
+>
+> Using the bound of Section 3.3 with $\log(256) \approx 5.545$,
+>
+> $$
+> \boxed{I(z_1, z_1^{+}) \;\ge\; 5.545 - 0.082 \approx 5.46 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* the bound is close to its ceiling of $\log N = 5.545$ nats, which is correct — the positive is separated from the negatives by 8 logits, so the model is nearly certain, and a nearly-zero loss saturates the bound. Note that no matter how good the representation gets, this bound can never exceed $\log N$, which is exactly why larger batches matter.
 
-$$
-\boxed{\text{After layer 2: } 56 \times 56 \times 128}
-$$
+> [!example]- Problem 5 — CLIP loss on a $2\times2$ batch
+> A CLIP batch of $N=2$ produces the scaled logit matrix $L = \begin{bmatrix} 3 & 1 \\ 0 & 2 \end{bmatrix}$, where $L_{ij}$ is the similarity between image $i$ and caption $j$. Compute $\mathcal{L}_{\text{I2T}}$, $\mathcal{L}_{\text{T2I}}$, and $\mathcal{L}_{\text{Total}}$ in nats.
+>
+> *Solution.* For $\mathcal{L}_{\text{I2T}}$, apply the row softmax of Section 3.5. Row 1 has $e^3 \approx 20.086$ and $e^1 \approx 2.718$, summing to $22.804$, so the diagonal term contributes $-\log(20.086/22.804) = -\log(0.8808) \approx 0.1269$. Row 2 has $e^0 = 1$ and $e^2 \approx 7.389$, summing to $8.389$, contributing $-\log(7.389/8.389) = -\log(0.8808) \approx 0.1269$. Averaging, $\mathcal{L}_{\text{I2T}} \approx 0.1269$.
+>
+> For $\mathcal{L}_{\text{T2I}}$, apply the column softmax. Column 1 has $e^3 \approx 20.086$ and $e^0 = 1$, summing to $21.086$, contributing $-\log(20.086/21.086) \approx 0.0486$. Column 2 has $e^1 \approx 2.718$ and $e^2 \approx 7.389$, summing to $10.107$, contributing $-\log(7.389/10.107) = -\log(0.7311) \approx 0.3133$. Averaging, $\mathcal{L}_{\text{T2I}} \approx 0.1810$. Combining the two halves,
+>
+> $$
+> \boxed{\mathcal{L}_{\text{I2T}} \approx 0.127, \quad \mathcal{L}_{\text{T2I}} \approx 0.181, \quad \mathcal{L}_{\text{Total}} \approx 0.154 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* the two directions differ, which is the whole reason CLIP averages both — this logit matrix is "better" for images picking captions than for captions picking images, and a one-directional loss would leave that asymmetry uncorrected. Both are well below $\log 2 \approx 0.693$, the loss of a model guessing at chance.
 
-*Reasonableness check:* each stride-2 layer roughly halves the spatial dimensions while doubling the channels — the standard resolution-for-depth trade in CNN design, and it keeps the per-layer activation volume roughly constant.
-
-**Problem 2 — ViT tokenization dimensions.** A ViT processes $224 \times 224 \times 3$ images with patch size $P = 16$ and embedding dimension $D = 768$, using a CLS token. Compute $N_P$, the flattened patch dimension, the shape of $W_E$, the shape of $x_0$, and the shape of $X$.
-
-*Solution.* From Section 2.6, the patch count is $N_P = (224/16)\times(224/16) = 14 \times 14 = 196$. Each patch flattens to $P^2 C_1 = 16^2 \times 3 = 768$ entries, so $x_{\text{flat}} \in \mathbb{R}^{196 \times 768}$ and the embedding matrix has shape $W_E \in \mathbb{R}^{P^2C_1 \times D} = \mathbb{R}^{768 \times 768}$. Prepending the CLS token adds one row, giving $x_0 \in \mathbb{R}^{197\times768}$, and transposing gives $X = x_0^\top$.
-
-$$
-\boxed{N_P = 196, \quad P^2C_1 = 768, \quad W_E: 768\times768, \quad x_0: 197\times768, \quad X: 768 \times 197}
-$$
-
-*Reasonableness check:* the coincidence $P^2C_1 = D = 768$ is specific to ViT-Base with $16\times16$ patches and is why its patch-embedding matrix is square; with $P = 32$ the flattened dimension would be $3072$ and $W_E$ would be $3072 \times 768$, decidedly non-square.
-
-**Problem 3 — Attention matrix and context vector.** A single-head attention layer has $N = 3$ tokens and $D = 4$. For query $q_1$, the raw scores against the three keys are $e = (2.0,\, 1.0,\, 0.0)$, and the value vectors are $v_1 = (1,0,0,0)$, $v_2 = (0,1,0,0)$, $v_3 = (0,0,1,0)$. Compute the attention weights (ignoring the $\sqrt{D}$ scaling) and the context vector $c_1$.
-
-*Solution.* Applying the align function of Section 2.9, $a = \text{softmax}(e)$: the exponentials are $e^{2.0} \approx 7.389$, $e^{1.0}\approx 2.718$, $e^{0.0} = 1$, summing to $11.107$. Dividing each by the sum gives $a \approx (0.665,\, 0.245,\, 0.090)$. The context vector is the weighted sum $c_1 = \sum_\ell a_\ell v_\ell$, and since the values here are the first three standard basis vectors, the weights land directly in the corresponding coordinates:
-
-$$
-\boxed{a \approx (0.665,\, 0.245,\, 0.090), \qquad c_1 \approx (0.665,\, 0.245,\, 0.090,\, 0)^{\top}}
-$$
-
-*Reasonableness check:* the weights sum to $1$ as a softmax must, and the fourth coordinate of $c_1$ is exactly zero because no value vector has any mass there — attention can only produce outputs in the span of the value vectors, never outside it.
-
-**Problem 4 — InfoNCE and its mutual-information bound.** In a batch of $N = 256$, an anchor has cosine similarity $0.9$ with its positive and cosine similarity $0.1$ with each of the $255$ negatives, all scaled by an inverse temperature of $10$. Compute $\mathcal{L}_{\text{InfoNCE}}$ and the resulting lower bound on $I(z_1, z_1^+)$ in nats.
-
-*Solution.* After scaling, the positive logit is $10 \times 0.9 = 9$ and each negative logit is $10 \times 0.1 = 1$. Applying the definition in Section 3.2, the numerator is $e^{9} \approx 8103.1$ and the denominator is $e^9 + 255e^1 \approx 8103.1 + 255(2.718) = 8103.1 + 693.1 = 8796.2$. Therefore $\mathcal{L}_{\text{InfoNCE}} = -\log(8103.1/8796.2) = -\log(0.9212) \approx 0.0821$.
-
-$$
-\boxed{\mathcal{L}_{\text{InfoNCE}} \approx 0.082 \text{ nats}}
-$$
-
-Using the bound of Section 3.3 with $\log(256) \approx 5.545$,
-
-$$
-\boxed{I(z_1, z_1^{+}) \;\ge\; 5.545 - 0.082 \approx 5.46 \text{ nats}}
-$$
-
-*Reasonableness check:* the bound is close to its ceiling of $\log N = 5.545$ nats, which is correct — the positive is separated from the negatives by 8 logits, so the model is nearly certain, and a nearly-zero loss saturates the bound. Note that no matter how good the representation gets, this bound can never exceed $\log N$, which is exactly why larger batches matter.
-
-**Problem 5 — CLIP loss on a $2\times2$ batch.** A CLIP batch of $N=2$ produces the scaled logit matrix $L = \begin{bmatrix} 3 & 1 \\ 0 & 2 \end{bmatrix}$, where $L_{ij}$ is the similarity between image $i$ and caption $j$. Compute $\mathcal{L}_{\text{I2T}}$, $\mathcal{L}_{\text{T2I}}$, and $\mathcal{L}_{\text{Total}}$ in nats.
-
-*Solution.* For $\mathcal{L}_{\text{I2T}}$, apply the row softmax of Section 3.5. Row 1 has $e^3 \approx 20.086$ and $e^1 \approx 2.718$, summing to $22.804$, so the diagonal term contributes $-\log(20.086/22.804) = -\log(0.8808) \approx 0.1269$. Row 2 has $e^0 = 1$ and $e^2 \approx 7.389$, summing to $8.389$, contributing $-\log(7.389/8.389) = -\log(0.8808) \approx 0.1269$. Averaging, $\mathcal{L}_{\text{I2T}} \approx 0.1269$.
-
-For $\mathcal{L}_{\text{T2I}}$, apply the column softmax. Column 1 has $e^3 \approx 20.086$ and $e^0 = 1$, summing to $21.086$, contributing $-\log(20.086/21.086) \approx 0.0486$. Column 2 has $e^1 \approx 2.718$ and $e^2 \approx 7.389$, summing to $10.107$, contributing $-\log(7.389/10.107) = -\log(0.7311) \approx 0.3133$. Averaging, $\mathcal{L}_{\text{T2I}} \approx 0.1810$. Combining the two halves,
-
-$$
-\boxed{\mathcal{L}_{\text{I2T}} \approx 0.127, \quad \mathcal{L}_{\text{T2I}} \approx 0.181, \quad \mathcal{L}_{\text{Total}} \approx 0.154 \text{ nats}}
-$$
-
-*Reasonableness check:* the two directions differ, which is the whole reason CLIP averages both — this logit matrix is "better" for images picking captions than for captions picking images, and a one-directional loss would leave that asymmetry uncorrected. Both are well below $\log 2 \approx 0.693$, the loss of a model guessing at chance.
-
-**Problem 6 — KL term of the VAE ELBO.** For a 2-dimensional latent with encoder outputs $\mu_e = (0.5,\, -1.0)$ and $\sigma_e = (1.0,\, 0.5)$, compute $D_{\mathrm{KL}}\big(\mathcal{N}(\mu_e, \sigma_e^2 I)\,\|\,\mathcal{N}(0,I)\big)$ using the standard closed form $D_{\mathrm{KL}} = \tfrac12\sum_{k}\left(\mu_k^2 + \sigma_k^2 - 1 - \log\sigma_k^2\right)$.
-
-*Solution.* This closed form is the diagonal-Gaussian instance of the prior-matching term in Section 5.3. For dimension 1, $\mu_1^2 = 0.25$, $\sigma_1^2 = 1$, and $\log\sigma_1^2 = 0$, giving $0.25 + 1 - 1 - 0 = 0.25$. For dimension 2, $\mu_2^2 = 1$, $\sigma_2^2 = 0.25$, and $\log(0.25) \approx -1.3863$, giving $1 + 0.25 - 1 + 1.3863 = 1.6363$. Summing and halving,
-
-$$
-D_{\mathrm{KL}} = \tfrac12(0.25 + 1.6363).
-$$
-
-$$
-\boxed{D_{\mathrm{KL}} \approx 0.943 \text{ nats}}
-$$
-
-*Reasonableness check:* the value is positive, as any KL must be, and would be exactly zero only for $\mu_e = 0$ and $\sigma_e = 1$ — i.e. posterior collapse (Section 5.6). Dimension 2 contributes over six times as much as dimension 1, which is right: it is both offset from the prior mean and over-concentrated relative to unit variance.
+> [!example]- Problem 6 — KL term of the VAE ELBO
+> For a 2-dimensional latent with encoder outputs $\mu_e = (0.5,\, -1.0)$ and $\sigma_e = (1.0,\, 0.5)$, compute $D_{\mathrm{KL}}\big(\mathcal{N}(\mu_e, \sigma_e^2 I)\,\|\,\mathcal{N}(0,I)\big)$ using the standard closed form $D_{\mathrm{KL}} = \tfrac12\sum_{k}\left(\mu_k^2 + \sigma_k^2 - 1 - \log\sigma_k^2\right)$.
+>
+> *Solution.* This closed form is the diagonal-Gaussian instance of the prior-matching term in Section 5.3. For dimension 1, $\mu_1^2 = 0.25$, $\sigma_1^2 = 1$, and $\log\sigma_1^2 = 0$, giving $0.25 + 1 - 1 - 0 = 0.25$. For dimension 2, $\mu_2^2 = 1$, $\sigma_2^2 = 0.25$, and $\log(0.25) \approx -1.3863$, giving $1 + 0.25 - 1 + 1.3863 = 1.6363$. Summing and halving,
+>
+> $$
+> D_{\mathrm{KL}} = \tfrac12(0.25 + 1.6363).
+> $$
+>
+> $$
+> \boxed{D_{\mathrm{KL}} \approx 0.943 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* the value is positive, as any KL must be, and would be exactly zero only for $\mu_e = 0$ and $\sigma_e = 1$ — i.e. posterior collapse (Section 5.6). Dimension 2 contributes over six times as much as dimension 1, which is right: it is both offset from the prior mean and over-concentrated relative to unit variance.
 
 ---
 

@@ -583,81 +583,90 @@ Modern LLMs use a **combination** of temperature $\rho$, top-$k$ and top-$\hat p
 
 ## Numerical Problems
 
-**Problem 1: cross-entropy at one position.** A position has logits $z = [2.0, 1.0, 0.5, -1.0]$ over a 4-token vocabulary. Find the probabilities and the loss when the true token is index 1, and when it is index 3.
+> [!example]- Problem 1: cross-entropy at one position
+> A position has logits $z = [2.0, 1.0, 0.5, -1.0]$ over a 4-token vocabulary. Find the probabilities and the loss when the true token is index 1, and when it is index 3.
+>
+> The log-sum-exp is $\log(e^{2} + e^{1} + e^{0.5} + e^{-1}) = \log(7.389 + 2.718 + 1.649 + 0.368) = \log 12.124 = 2.495$. The probabilities are $e^{z_v - 2.495} = [0.610, 0.224, 0.136, 0.030]$. The loss is $\ell = -z_y + 2.495$:
+>
+> $$\boxed{\ell(y{=}1) = 0.495, \qquad \ell(y{=}3) = 1.995}$$
+>
+> Check: $-\ln 0.610 = 0.495$ ✓. Predicting a less likely token costs more.
 
-The log-sum-exp is $\log(e^{2} + e^{1} + e^{0.5} + e^{-1}) = \log(7.389 + 2.718 + 1.649 + 0.368) = \log 12.124 = 2.495$. The probabilities are $e^{z_v - 2.495} = [0.610, 0.224, 0.136, 0.030]$. The loss is $\ell = -z_y + 2.495$:
+> [!example]- Problem 2: the logit gradient
+> For the same position, $m = 1$, $N_{\text{valid}} = 4$ and true token index 1, find $\partial L/\partial z$.
+>
+> By §4.4, $\partial L/\partial z = \frac{1}{4}(P - \mathbf e_1) = \frac14[0.610 - 1, 0.224, 0.136, 0.030]$:
+>
+> $$\boxed{\partial L/\partial z = [-0.0975,\ 0.056,\ 0.034,\ 0.0075]}$$
+>
+> The entries sum to 0: the push up on the true logit equals the total push down on the others.
 
-$$\boxed{\ell(y{=}1) = 0.495, \qquad \ell(y{=}3) = 1.995}$$
+> [!example]- Problem 3: masked batch loss
+> $B = 2$ with masks $m_1 = [1,1,1,1,0]$ and $m_2 = [1,1,1,0,0]$. The valid positions have true-token probabilities $[0.5, 0.25, 0.8, 0.1]$ for sequence 1 and $[0.6, 0.3, 0.9]$ for sequence 2. Find $L$, and the wrong value you'd get by averaging over all 10 positions (padding counted as loss 0).
+>
+> The sum of $-\ln p$ is
+> - sequence 1: $0.693 + 1.386 + 0.223 + 2.303 = 4.605$;
+> - sequence 2: $0.511 + 1.204 + 0.105 = 1.820$;
+>
+> for a total of $6.425$. With $N_{\text{valid}} = 7$:
+>
+> $$\boxed{L = 6.425/7 = 0.918 \quad(\text{vs } 6.425/10 = 0.643 \text{ if padding is counted})}$$
+>
+> Counting padding would understate the loss, and by an amount that depends on how much padding the batch has.
 
-Check: $-\ln 0.610 = 0.495$ ✓. Predicting a less likely token costs more.
+> [!example]- Problem 4: the softmax bottleneck
+> With $d = 4096$ and $V = 50{,}000$, how many parameters does an untied $W_U$ have, how many does tying save, and how large is the fp32 logits tensor for $B = 8$, $T = 1024$?
+>
+> - $W_U$: $d \times V = 4096 \times 50{,}000 = 2.048\times10^8$ parameters. Tying reuses $W_E$, saving exactly that many.
+> - Logits: $B\,T\,V = 8 \times 1024 \times 50{,}000 = 4.096\times10^8$ floats $\times$ 4 bytes $= 1.64$ GB.
+>
+> $$\boxed{\approx 205\text{M parameters saved by tying};\ \text{logits} \approx 1.6\text{ GB}}$$
 
-**Problem 2: the logit gradient.** For the same position, $m = 1$, $N_{\text{valid}} = 4$ and true token index 1, find $\partial L/\partial z$.
+> [!example]- Problem 5: KV-cache memory
+> A model has $L = 32$ layers and $d = 4096$, generating $T = 2048$ tokens in fp16 (2 bytes). How much memory does the KV cache need per sequence?
+>
+> Each layer stores a key and a value vector of size $d$ per token: $2 \times L \times T \times d = 2 \times 32 \times 2048 \times 4096 = 5.37\times10^8$ numbers, times 2 bytes $= 1.07\times10^9$ bytes.
+>
+> $$\boxed{\approx 1\text{ GiB per sequence}}$$
+>
+> It grows linearly in $T$ and in the batch size, which is why long contexts are memory-bound.
 
-By §4.4, $\partial L/\partial z = \frac{1}{4}(P - \mathbf e_1) = \frac14[0.610 - 1, 0.224, 0.136, 0.030]$:
+> [!example]- Problem 6: Kaplan vs Chinchilla
+> Compute grows $10\times$. How should $N$ and $D$ grow under each law?
+>
+> - **Kaplan:** $N \propto C^{0.73}$ gives $10^{0.73} = 5.37\times$, and $D \propto C^{0.27}$ gives $10^{0.27} = 1.86\times$.
+> - **Chinchilla:** $N, D \propto C^{0.5}$ gives $10^{0.5} = 3.16\times$ each.
+>
+> $$\boxed{\text{Kaplan: } N\times5.4,\ D\times1.9; \quad \text{Chinchilla: } N\times3.2,\ D\times3.2}$$
+>
+> Both products are $10\times$, as $C \propto ND$ requires.
 
-$$\boxed{\partial L/\partial z = [-0.0975,\ 0.056,\ 0.034,\ 0.0075]}$$
+> [!example]- Problem 7: compute-optimal model size
+> A budget of $C = 6\times10^{23}$ FLOPs. Using $C = 6ND$ and the 20-tokens-per-parameter rule, find $N$ and $D$.
+>
+> $ND = 10^{23}$ and $D = 20N$, so $20N^2 = 10^{23}$ and $N = \sqrt{5\times10^{21}} = 7.07\times10^{10}$; then $D = 1.41\times10^{12}$.
+>
+> $$\boxed{N \approx 71\text{B parameters},\ D \approx 1.4\text{T tokens}}$$
+>
+> This is Chinchilla itself: 70B parameters on 1.4T tokens.
 
-The entries sum to 0: the push up on the true logit equals the total push down on the others.
+> [!example]- Problem 8: temperature, top-$k$ and top-$p$
+> For $P = [0.5, 0.3, 0.15, 0.04, 0.01]$, find the distribution at $\rho = 2$, and the nucleus for $\hat p = 0.75$.
+>
+> At $\rho = 2$, $P^{1/2} = [0.707, 0.548, 0.387, 0.2, 0.1]$, which sums to $1.942$. For $\hat p = 0.75$: "mat" alone is $0.5 < 0.75$; "mat" + "rug" is $0.8 \ge 0.75$, so stop. Renormalize: $0.5/0.8$, $0.3/0.8$.
+>
+> $$\boxed{\rho = 2:\ [0.364, 0.282, 0.199, 0.103, 0.051]; \quad \text{nucleus} = \{\text{mat } 0.625, \text{rug } 0.375\}}$$
+>
+> A higher temperature lifts "moon" from 1% to 5%. A tighter $\hat p$ shrinks the nucleus.
 
-**Problem 3: masked batch loss.** $B = 2$ with masks $m_1 = [1,1,1,1,0]$ and $m_2 = [1,1,1,0,0]$. The valid positions have true-token probabilities $[0.5, 0.25, 0.8, 0.1]$ for sequence 1 and $[0.6, 0.3, 0.9]$ for sequence 2. Find $L$, and the wrong value you'd get by averaging over all 10 positions (padding counted as loss 0).
-
-The sum of $-\ln p$ is
-- sequence 1: $0.693 + 1.386 + 0.223 + 2.303 = 4.605$;
-- sequence 2: $0.511 + 1.204 + 0.105 = 1.820$;
-
-for a total of $6.425$. With $N_{\text{valid}} = 7$:
-
-$$\boxed{L = 6.425/7 = 0.918 \quad(\text{vs } 6.425/10 = 0.643 \text{ if padding is counted})}$$
-
-Counting padding would understate the loss, and by an amount that depends on how much padding the batch has.
-
-**Problem 4: the softmax bottleneck.** With $d = 4096$ and $V = 50{,}000$, how many parameters does an untied $W_U$ have, how many does tying save, and how large is the fp32 logits tensor for $B = 8$, $T = 1024$?
-
-- $W_U$: $d \times V = 4096 \times 50{,}000 = 2.048\times10^8$ parameters. Tying reuses $W_E$, saving exactly that many.
-- Logits: $B\,T\,V = 8 \times 1024 \times 50{,}000 = 4.096\times10^8$ floats $\times$ 4 bytes $= 1.64$ GB.
-
-$$\boxed{\approx 205\text{M parameters saved by tying};\ \text{logits} \approx 1.6\text{ GB}}$$
-
-**Problem 5: KV-cache memory.** A model has $L = 32$ layers and $d = 4096$, generating $T = 2048$ tokens in fp16 (2 bytes). How much memory does the KV cache need per sequence?
-
-Each layer stores a key and a value vector of size $d$ per token: $2 \times L \times T \times d = 2 \times 32 \times 2048 \times 4096 = 5.37\times10^8$ numbers, times 2 bytes $= 1.07\times10^9$ bytes.
-
-$$\boxed{\approx 1\text{ GiB per sequence}}$$
-
-It grows linearly in $T$ and in the batch size, which is why long contexts are memory-bound.
-
-**Problem 6: Kaplan vs Chinchilla.** Compute grows $10\times$. How should $N$ and $D$ grow under each law?
-
-- **Kaplan:** $N \propto C^{0.73}$ gives $10^{0.73} = 5.37\times$, and $D \propto C^{0.27}$ gives $10^{0.27} = 1.86\times$.
-- **Chinchilla:** $N, D \propto C^{0.5}$ gives $10^{0.5} = 3.16\times$ each.
-
-$$\boxed{\text{Kaplan: } N\times5.4,\ D\times1.9; \quad \text{Chinchilla: } N\times3.2,\ D\times3.2}$$
-
-Both products are $10\times$, as $C \propto ND$ requires.
-
-**Problem 7: compute-optimal model size.** A budget of $C = 6\times10^{23}$ FLOPs. Using $C = 6ND$ and the 20-tokens-per-parameter rule, find $N$ and $D$.
-
-$ND = 10^{23}$ and $D = 20N$, so $20N^2 = 10^{23}$ and $N = \sqrt{5\times10^{21}} = 7.07\times10^{10}$; then $D = 1.41\times10^{12}$.
-
-$$\boxed{N \approx 71\text{B parameters},\ D \approx 1.4\text{T tokens}}$$
-
-This is Chinchilla itself: 70B parameters on 1.4T tokens.
-
-**Problem 8: temperature, top-$k$ and top-$p$.** For $P = [0.5, 0.3, 0.15, 0.04, 0.01]$, find the distribution at $\rho = 2$, and the nucleus for $\hat p = 0.75$.
-
-At $\rho = 2$, $P^{1/2} = [0.707, 0.548, 0.387, 0.2, 0.1]$, which sums to $1.942$. For $\hat p = 0.75$: "mat" alone is $0.5 < 0.75$; "mat" + "rug" is $0.8 \ge 0.75$, so stop. Renormalize: $0.5/0.8$, $0.3/0.8$.
-
-$$\boxed{\rho = 2:\ [0.364, 0.282, 0.199, 0.103, 0.051]; \quad \text{nucleus} = \{\text{mat } 0.625, \text{rug } 0.375\}}$$
-
-A higher temperature lifts "moon" from 1% to 5%. A tighter $\hat p$ shrinks the nucleus.
-
-**Problem 9: beam search beats greedy.** Step 1: $P(\text{A}) = 0.6$, $P(\text{B}) = 0.4$. Step 2: after A the best next token has probability 0.3; after B the best has 0.9. Compare greedy with beam search ($K = 2$).
-
-Greedy picks A, then its best: $0.6 \times 0.3 = 0.18$, log-score $-1.71$. Beam keeps both, and B's best path scores $0.4 \times 0.9 = 0.36$, log-score $-1.02$.
-
-$$\boxed{\text{beam: } 0.36 \text{ vs greedy: } 0.18}$$
-
-Greedy's locally best first step led to a worse sequence.
+> [!example]- Problem 9: beam search beats greedy
+> Step 1: $P(\text{A}) = 0.6$, $P(\text{B}) = 0.4$. Step 2: after A the best next token has probability 0.3; after B the best has 0.9. Compare greedy with beam search ($K = 2$).
+>
+> Greedy picks A, then its best: $0.6 \times 0.3 = 0.18$, log-score $-1.71$. Beam keeps both, and B's best path scores $0.4 \times 0.9 = 0.36$, log-score $-1.02$.
+>
+> $$\boxed{\text{beam: } 0.36 \text{ vs greedy: } 0.18}$$
+>
+> Greedy's locally best first step led to a worse sequence.
 
 ---
 

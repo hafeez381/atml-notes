@@ -810,9 +810,6 @@ In **off-policy distillation** the next token, and so the prefix, comes from **t
 
 In **on-policy distillation** the prefix comes from the **student's own samples**: the student generates, and the teacher provides the target distribution at every token of that student-written text. The student is trained on the prefixes it will actually see at inference, which removes exposure bias. *(Expanding on this: GKD, generalized knowledge distillation (Agarwal et al., 2024), trains on student-generated sequences, and MiniLLM (Gu et al., 2024) pairs on-policy sampling with the reverse KL, which is mode-seeking ([[ATML_Lecture_2 - Information Theory and Divergences#5.4 Reverse KL Divergence Is Mode-Seeking|Lecture 2 §5.4]]) and so avoids the averaging of §6.9.)*
 
-> [!warning] Possible source inconsistency
-> Your notes list "① On-policy distillation — get the next token (prefix) from the teacher or the dataset", then exposure bias. Your friend's notes label the same thing "① **Off**-policy distillation (next token from T or dataset)" with "② On-policy distillation" as the second area. Your friend's labels match the standard terms, since "on-policy" means sampled from the student's own policy, and they are used here. Neither set records further details of on-policy distillation, so §7.3's description is standard background.
-
 ![[03 - Attachments/ATML_L13_llm_kd.svg|760]]
 
 *(a) Off-policy: the prefix comes from the teacher or the dataset, and the student and teacher distributions are matched on it per token; the student never sees its own mistakes (exposure bias). (b) On-policy: the student samples the next token itself, so it is trained on the prefixes it will produce at inference.*
@@ -838,177 +835,200 @@ Your notes end with: **generalization happens during the RL alignment stage.** *
 
 ## Numerical Problems
 
-**Problem 1 — the sparsity budget.** A network has three layers with 1,000, 4,000 and 5,000 weights. With sparsity $\alpha = 0.9$, how many weights can be kept in total under [[#^eq-2|eq. (2)]]'s constraint?
-
-$\sum_\ell\lVert W^{(\ell)}\rVert_0 = 10{,}000$, so $\sum_\ell\lVert M^{(\ell)}\rVert_0 \le (1 - 0.9) \times 10{,}000$:
-
-$$\boxed{\text{at most } 1{,}000 \text{ weights kept}}$$
-
-**Problem 2 — why exact pruning is NP-hard.** How many masks keep 3 of 10 weights? How many keep 10% of 100?
-
-$$\binom{10}{3} = \frac{10\cdot9\cdot8}{3\cdot2\cdot1} = 120, \qquad \binom{100}{10} \approx \boxed{1.73\times10^{13}}$$
-
-Checking each mask would mean evaluating the loss $1.7\times10^{13}$ times for a 100-weight model, which is why the two-step approximation of [[#3.2 Pruning as constrained optimization|§3.2]] is used.
-
-**Problem 3 — layer-wise sparsity.** In Problem 1's network, a scheme prunes layer 1 at $\alpha_1 = 0.5$ (it is sensitive) and layers 2 and 3 at the same $\alpha'$. What must $\alpha'$ be for overall sparsity 0.9?
-
-The overall sparsity is the parameter-weighted average: $\frac{1000}{10000}(0.5) + \frac{9000}{10000}\alpha' = 0.9$, so $0.05 + 0.9\alpha' = 0.9$:
-
-$$\boxed{\alpha' = 0.944}$$
-
-The naive sum $\sum_\ell\alpha_\ell = 0.5 + 0.944 + 0.944 = 2.39$ is not 0.9, which is why the condition must be a weighted average ([[#3.3 How to group weights|§3.3]]).
-
-**Problem 4 — magnitude vs Wanda.** In the neuron of [[#3.5 Activation-aware pruning (Wanda)|§3.5]], $\theta_1 = 0.1$, $\theta_2 = 0.5$, and typical inputs are $\lvert x_1\rvert = 10$, $\lvert x_2\rvert = 0.5$. Which weight does each method prune, and how much output does each removal lose?
-
-Magnitude: $\lvert\theta_1\rvert = 0.1 < 0.5$, so it prunes $\theta_1$. Wanda: $\lvert\theta_1\rvert\lvert x_1\rvert = 1.0$ and $\lvert\theta_2\rvert\lvert x_2\rvert = 0.25$, so it prunes $\theta_2$. Removing $\theta_1$ loses a contribution of $1.0$; removing $\theta_2$ loses $0.25$.
-
-$$\boxed{\text{magnitude prunes } \theta_1 \text{ (loses 1.0)}; \ \text{Wanda prunes } \theta_2 \text{ (loses 0.25)}}$$
-
-**Problem 5 — Optimal Brain Damage.** Three weights have values $\theta = (0.4, -0.1, 0.3)$ and diagonal Hessian entries $H = (0.5, 20, 2)$. Rank them by OBD score and by magnitude.
-
-OBD scores $\frac12H_{jj}\theta_j^2$: $\frac12(0.5)(0.16) = 0.04$, $\frac12(20)(0.01) = 0.10$, $\frac12(2)(0.09) = 0.09$. Magnitudes: $0.4, 0.1, 0.3$.
-
-$$\boxed{\text{OBD prunes } \theta_1 \ (0.04); \ \text{magnitude prunes } \theta_2 \ (0.1)}$$
-
-$\theta_2$ is the smallest weight but sits in a sharply curved direction, so OBD keeps it; $\theta_1$ is the largest but the loss is flat along it.
-
-**Problem 6 — asymmetric uint8 quantization.** Activations range over $[-1, 3]$. Find $s$ and $z$ for uint8, quantize $x = 1.0$, and dequantize it.
-
-$q_{\min} = 0$, $q_{\max} = 255$. Then $s = (3 - (-1))/255 = 0.015686$ and $z = \text{round}(0 - (-1)/0.015686) = \text{round}(63.75) = 64$. For $x = 1.0$: $q = \text{round}(1.0/0.015686) + 64 = \text{round}(63.75) + 64 = 128$. Dequantizing: $\hat x = 0.015686 \times (128 - 64) = 1.0039$.
-
-$$\boxed{s = 0.01569, \ z = 64, \ q = 128, \ \hat x = 1.0039}$$
-
-The error, $0.0039$, is below $s/2 = 0.0078$, as it must be. Check the ends: $x = -1 \mapsto \text{round}(-63.75) + 64 = 0$ and $x = 3 \mapsto \text{round}(191.25) + 64 = 255$.
-
-**Problem 7 — symmetric int8 quantization.** Weights range over $[-0.6, 0.9]$. Find $s$, quantize $w = -0.5$, and find how many integer levels go unused.
-
-$s = \max(0.6, 0.9)/127 = 0.0070866$, $z = 0$. Then $q = \text{round}(-0.5/0.0070866) = \text{round}(-70.56) = -71$, and $\hat w = -71 \times 0.0070866 = -0.5031$. The most negative weight maps to $\text{round}(-0.6/0.0070866) = -85$, so the levels $-128$ to $-86$ are never used.
-
-$$\boxed{s = 0.00709, \ q = -71, \ \hat w = -0.5031, \ 43 \text{ unused levels}}$$
-
-**Problem 8 — the rate of a compressed LLM.** A 7B-parameter model is stored in fp16. Compare its rate with int4 quantization, and with 50% pruning plus int8.
-
-fp16: $7\times10^9 \times 16 = 1.12\times10^{11}$ bits $= 14$ GB. int4: $7\times10^9 \times 4 = 2.8\times10^{10}$ bits $= 3.5$ GB. Pruned and int8: $3.5\times10^9 \times 8 = 2.8\times10^{10}$ bits $= 3.5$ GB.
-
-$$\boxed{14 \text{ GB} \to 3.5 \text{ GB in both cases}}$$
-
-Both routes cut the rate by 4×, through different factors of [[#2.1 Rate and distortion|§2.1]]'s product (ignoring the cost of storing the mask's positions, which unstructured pruning also has to pay).
-
-**Problem 9 — lottery-ticket rounds.** Each round of the lottery-ticket loop prunes 20% of the remaining weights. How many rounds reach at least 97% sparsity?
-
-After $n$ rounds the density is $0.8^n$. We need $0.8^n \le 0.03$, so $n \ge \ln 0.03/\ln 0.8 = 15.7$:
-
-$$\boxed{16 \text{ rounds}}$$
-
-Each round includes a full retraining, which is the catch-22's cost ([[#3.7 The Lottery Ticket Hypothesis|§3.7]]).
-
-**Problem 10 — the generalization gap.** A model has training loss 0.05 and test loss 0.12. After compression the training loss is 0.07 and the test loss 0.11. Compute the gap and the distortion before and after (use test loss for $L$).
-
-Before: $\Delta = 0.12 - 0.05 = 0.07$. After: $\Delta = 0.11 - 0.07 = 0.04$. Distortion $= L(\hat\theta) - L(\theta) = 0.11 - 0.12 = -0.01$.
-
-$$\boxed{\Delta: 0.07 \to 0.04, \quad \text{distortion} = -0.01}$$
-
-A negative distortion is the left compression move of [[#1.3 Double descent|§1.3]]: the smaller model generalizes better.
-
-**Problem 11 — the minimum-norm solution.** Solve $\theta_1 + \theta_2 = 2$ (one sample, two parameters) with the pseudo-inverse, and compare with the solution $(2, 0)$.
-
-$A = [1\ \ 1]$, so $AA^\top = 2$ and $A^{+} = A^\top(AA^\top)^{-1} = \tfrac12[1\ \ 1]^\top$. Then $\hat\theta = A^{+}\cdot 2 = (1, 1)$, with norm $\sqrt2 = 1.414$, while $(2, 0)$ has norm 2.
-
-$$\boxed{\hat\theta = (1, 1), \ \lVert\hat\theta\rVert = 1.414 < 2}$$
-
-Both fit the data exactly; the pseudo-inverse picks the one with the smallest weights ([[#1.3 Double descent|§1.3]]).
-
-**Problem 12 — QAT with the straight-through estimator.** As in [[#4.7 When to quantize — QAT and the straight-through estimator|§4.7]], $H = \begin{bmatrix}1.1 & 2.2\\ -1.7 & 3.6\end{bmatrix}$ is quantized with $s = 1$, $z = 0$ and the range clipped to $[-2, 2]$. The backward pass delivers $\partial L/\partial \hat H = \begin{bmatrix}0.3 & -0.1\\ 0.2 & 0.5\end{bmatrix}$. Find $\hat H$, the true gradient through the quantizer, and $\partial L/\partial H$ under the plain STE and the clipped STE.
-
-Rounding gives $(1, 2, -2, 4)$ and clipping $4 \mapsto 2$, so $\hat H = \begin{bmatrix}1 & 2\\ -2 & 2\end{bmatrix}$. The quantizer is flat at each of these inputs, so the true gradient is $0$ everywhere. The plain STE ([[#^eq-4|eq. (4)]]) copies the incoming gradient; the clipped STE also zeroes the entry that was clipped (3.6 lies outside $[-2, 2]$):
-
-$$\boxed{\text{true: } 0; \quad \text{STE: } \begin{bmatrix}0.3 & -0.1\\ 0.2 & 0.5\end{bmatrix}; \quad \text{clipped STE: } \begin{bmatrix}0.3 & -0.1\\ 0.2 & 0\end{bmatrix}}$$
-
-**Problem 13 — the outlier moves $s$ and $z$.** A layer's weights lie in $[-1, 4]$. Quantize asymmetrically to uint8, then repeat after one weight becomes $10^6$ ([[#4.9 When quantization struggles — the outlier problem|§4.9]]). Where does the weight $4$ land in each case? Repeat the second case with symmetric int8.
-
-Without the outlier: $s = 5/255 = 0.01961$ and $z = \text{round}(0 + 1/0.01961) = 51$; the weight 4 gives $q = \text{round}(204) + 51 = 255$. With it: $s = (10^6 + 1)/255 = 3921.6$ and $z = \text{round}(1/3921.6) = \text{round}(0.00026) = 0$; the weight 4 gives $q = \text{round}(0.001) + 0 = 0$, so $\hat w = 0$. Symmetric int8: $s = 10^6/127 = 7874$, and every $\lvert w\rvert \le 4$ has $\lvert w\rvert/s < 0.001$, so it rounds to 0.
-
-$$\boxed{z: 51 \to 0, \quad s: 0.0196 \to 3922, \quad \text{all eleven ordinary weights} \mapsto 0}$$
-
-The outlier changes both $s$ and $z$ (the question in your paper notes), and wipes out every other weight.
-
-**Problem 14 — low-rank and Hadamard parameter counts.** A $4096\times4096$ weight is replaced by a rank-64 factorization. What is the compression ratio? With the parameters of a rank-16 factorization, what maximum rank does the Hadamard construction of [[#5.2 More rank from the same parameters — the Hadamard product|§5.2]] reach?
-
-Dense: $4096^2 = 16{,}777{,}216$. Rank 64: $64(4096 + 4096) = 524{,}288$, a ratio of $32$. A rank-16 factorization costs $16 \times 8192 = 131{,}072$ parameters; spent as two rank-8 branches, it has the same count and rank up to $8^2 = 64$.
-
-$$\boxed{32\times \text{ smaller}; \quad \text{rank } 64 \text{ instead of } 16 \text{ for } 131{,}072 \text{ parameters}}$$
-
-**Problem 15 — temperature makes a teacher lenient.** A teacher's logits are $v = (4, 2, 0)$. Compute $p$ and its entropy at $\rho = 1$ and $\rho = 4$.
-
-At $\rho = 1$: $e^4, e^2, e^0 = 54.60, 7.389, 1$, total $62.99$, so $p = (0.867, 0.117, 0.016)$ and $H = -\sum p_i\ln p_i = 0.441$ nats. At $\rho = 4$ the logits become $(1, 0.5, 0)$: $e^1, e^{0.5}, 1 = 2.718, 1.649, 1$, total $5.367$, so $p = (0.506, 0.307, 0.186)$ and $H = 1.020$ nats.
-
-$$\boxed{\rho = 1:\ (0.867, 0.117, 0.016),\ H = 0.44; \qquad \rho = 4:\ (0.506, 0.307, 0.186),\ H = 1.02}$$
-
-The maximum, for the uniform distribution, is $\ln 3 = 1.099$: at $\rho = 4$ the teacher is lenient ([[#6.5 Strict vs lenient teacher|§6.5]]) but still ranks the classes.
-
-**Problem 16 — distillation at high temperature is logit matching.** With $K = 3$, $\rho = 10$, teacher logits $v = (2, 0, -2)$ and student logits $z = (1, 0, -1)$ (both zero-mean), compare the exact gradient $\rho(q_i - p_i)$ with the approximation $(z_i - v_i)/K$ of [[#6.3 Why the ρ² factor — distillation becomes logit MSE|§6.3]].
-
-$p = \text{softmax}(v/10) = (0.402, 0.329, 0.269)$ and $q = \text{softmax}(z/10) = (0.367, 0.332, 0.301)$. Exact: $10(q - p) = (-0.346, 0.033, 0.313)$. Approximation: $\tfrac13(-1, 0, 1) = (-0.333, 0, 0.333)$.
-
-$$\boxed{\text{exact } (-0.346, 0.033, 0.313) \approx \text{MSE gradient } (-0.333, 0, 0.333)}$$
-
-Both push $z_1$ up and $z_3$ down towards the teacher's more spread-out logits; the approximation improves as $\rho$ grows.
-
-**Problem 17 — the DKD decomposition.** With four classes and target $t = 1$, the teacher gives $p = (0.8, 0.06, 0.08, 0.06)$ and the student $q = (0.7, 0.1, 0.08, 0.12)$. Compute $\mathrm{KL}(p\Vert q)$, TCKD and NCKD, and check [[#^eq-6|eq. (6)]].
-
-Directly, $\mathrm{KL} = 0.8\ln\frac{0.8}{0.7} + 0.06\ln\frac{0.06}{0.1} + 0.08\ln 1 + 0.06\ln\frac{0.06}{0.12} = 0.1068 - 0.0306 + 0 - 0.0416 = 0.0346$. TCKD on $b^T = (0.8, 0.2)$, $b^S = (0.7, 0.3)$: $0.8\ln\frac87 + 0.2\ln\frac23 = 0.1068 - 0.0811 = 0.0257$. NCKD on $\hat p = (0.3, 0.4, 0.3)$, $\hat q = (0.333, 0.267, 0.4)$: $0.3\ln0.9 + 0.4\ln1.5 + 0.3\ln0.75 = -0.0316 + 0.1622 - 0.0863 = 0.0443$.
-
-$$\boxed{0.0257 + (1 - 0.8)(0.0443) = 0.0346 = \mathrm{KL}(p\Vert q)}$$
-
-In plain KD the non-target mismatch, the larger of the two, enters with weight only $0.2$; DKD gives it its own weight $\gamma_{\text{NC}}$ ([[#6.8 Decoupled knowledge distillation (DKD)|§6.8]]).
-
-**Problem 18 — measuring gradient conflict.** A student gives $q = (0.6, 0.3, 0.1)$ on a three-class example with true class 1, so $y = (1, 0, 0)$; the teacher gives $p = (0.5, 0.4, 0.1)$. With $\rho = 1$, compute the logit gradients of $L_{\text{CE}}$ and $L_{\text{KD}}$, their cosine ([[#^eq-7|eq. (7)]]), and the length of the update with $\lambda = \mu = 0.5$ ([[#6.10 Gradient conflict between the CE and KD terms|§6.10]]).
-
-$g_{\text{CE}} = q - y = (-0.4, 0.3, 0.1)$ and $g_{\text{KD}} = q - p = (0.1, -0.1, 0)$. The dot product is $-0.04 - 0.03 + 0 = -0.07$, and the norms are $\sqrt{0.26} = 0.510$ and $\sqrt{0.02} = 0.141$, so $\cos = -0.07/(0.510 \times 0.141) = -0.971$. The combined gradient is $0.5g_{\text{CE}} + 0.5g_{\text{KD}} = (-0.15, 0.10, 0.05)$, of length $0.187$.
-
-$$\boxed{\cos(g_{\text{CE}}, g_{\text{KD}}) = -0.97, \quad \lVert\text{update}\rVert = 0.187 < 0.255 = \lVert 0.5\,g_{\text{CE}}\rVert}$$
-
-The student is more confident on the target than the teacher ($0.6 > 0.5$), so KD pushes the target logit down while CE pushes it up, and the KD half of the update undoes part of the CE half.
-
-**Problem 19 — Gram–Schmidt harmonization.** Apply [[#^eq-8|eq. (8)]] to Problem 18's gradients and give the harmonized update.
-
-$\frac{g_{\text{KD}}\cdot g_{\text{CE}}}{\lVert g_{\text{CE}}\rVert^2} = \frac{-0.07}{0.26} = -0.2692$, so $g_{\text{KD}}^{\perp} = (0.1, -0.1, 0) + 0.2692\,(-0.4, 0.3, 0.1) = (-0.0077, -0.0192, 0.0269)$. Check: $g_{\text{KD}}^{\perp}\cdot g_{\text{CE}} = 0.0031 - 0.0058 + 0.0027 = 0$. The update $0.5g_{\text{CE}} + 0.5g_{\text{KD}}^{\perp} = (-0.204, 0.140, 0.063)$.
-
-$$\boxed{g_{\text{KD}}^{\perp} = (-0.0077, -0.0192, 0.0269), \quad \text{update} = (-0.204, 0.140, 0.063)}$$
-
-The CE part of the step is now intact, and only the KD direction that CE does not oppose remains.
-
-**Problem 20 — momentum filters a zig-zag.** The gradient along one coordinate alternates, $g_t = 0.2 + (-1)^t$ (so $-0.8, 1.2, -0.8, \dots$), with a true average of 0.2. With $\beta_m = 0.9$ and $v_0 = 0$ in [[#^eq-9|eq. (9)]], compute $v_1$ to $v_4$ and the size of $v$'s long-run oscillation.
-
-$v_1 = 0.1(-0.8) = -0.08$; $v_2 = 0.9(-0.08) + 0.1(1.2) = 0.048$; $v_3 = 0.0432 - 0.08 = -0.0368$; $v_4 = -0.0331 + 0.12 = 0.0869$. In steady state $v_t = 0.2 + A(-1)^t$; substituting, $A(-1)^t = -0.9A(-1)^{t} + 0.1(-1)^t$, so $A = 0.1/1.9 = 0.053$.
-
-$$\boxed{v_t \to 0.2 \pm 0.053, \ \text{versus raw gradients } 0.2 \pm 1}$$
-
-The oscillation shrinks by a factor of $(1 - \beta_m)/(1 + \beta_m) = 1/19$ while the consistent component passes unchanged: the low-pass filter of [[#6.11 Resolving the conflict — gradient harmonization and momentum|§6.11]].
-
-**Problem 21 — the FitNets regressor.** The student's hint features are 384-dimensional per token and the teacher's 768. How many parameters does a one-layer linear regressor $\text{Reg}$ ([[#^eq-10|eq. (10)]]) need?
-
-A $384 \to 768$ linear layer has $384 \times 768$ weights and $768$ biases:
-
-$$\boxed{294{,}912 + 768 = 295{,}680 \text{ parameters}}$$
-
-These are trained with the student and thrown away afterwards; their capacity is the "ideal regressor" question of [[#6.13 FitNets — feature-level distillation|§6.13]].
-
-**Problem 22 — the CRD ratio and temperature.** The teacher–student positive pair has cosine 0.8, and three negatives have cosines $0.1, -0.2, 0.3$. With $\text{sim} = \exp(\cos/\tau)$, compute [[#^eq-11|eq. (11)]] and the loss $-\ln(\cdot)$ at $\tau = 0.1$ and $\tau = 1$.
-
-At $\tau = 0.1$: $e^{8} = 2981.0$ and the negatives give $e^{1} + e^{-2} + e^{3} = 2.718 + 0.135 + 20.086 = 22.94$, so the ratio is $2981.0/3003.9 = 0.9924$ and the loss $0.0077$. At $\tau = 1$: $e^{0.8} = 2.226$ against $1.105 + 0.819 + 1.350 = 3.274$, so the ratio is $2.226/5.499 = 0.405$ and the loss $0.905$.
-
-$$\boxed{\tau = 0.1:\ 0.992,\ L = 0.008; \qquad \tau = 1:\ 0.405,\ L = 0.905}$$
-
-A low temperature sharpens the differences between similarities, so the same geometry is scored as almost solved; with $\tau = 1$ the negatives still claim most of the denominator.
-
-**Problem 23 — the fooled discriminator.** In adversarial distillation ([[#6.15 Adversarial distillation and other divergences|§6.15]]), the discriminator outputs $D(r)$, the probability that representation $r$ came from the teacher. Its optimum is $D^*(r) = \frac{p_T(r)}{p_T(r) + p_S(r)}$. What is $D^*$ when the student's representations match the teacher's, and what is the discriminator's binary cross-entropy $-\ln D(r_T) - \ln(1 - D(r_S))$ there?
-
-If $p_S = p_T$, then $D^* = p_T/(2p_T) = 0.5$ everywhere, and the loss is $-\ln 0.5 - \ln 0.5 = 2\ln 2$:
-
-$$\boxed{D^* = 0.5, \quad \text{BCE} = 2\ln 2 = 1.386}$$
-
-This is the equilibrium of [[ATML_Lecture_4 - GANs, and Inductive Biases#1.2 The Discriminator, the Generator, and the Equilibrium|Lecture 4 §1.2]]: the discriminator can do no better than a coin flip.
+> [!example]- Problem 1 — the sparsity budget
+> A network has three layers with 1,000, 4,000 and 5,000 weights. With sparsity $\alpha = 0.9$, how many weights can be kept in total under [[#^eq-2|eq. (2)]]'s constraint?
+>
+> $\sum_\ell\lVert W^{(\ell)}\rVert_0 = 10{,}000$, so $\sum_\ell\lVert M^{(\ell)}\rVert_0 \le (1 - 0.9) \times 10{,}000$:
+>
+> $$\boxed{\text{at most } 1{,}000 \text{ weights kept}}$$
+
+> [!example]- Problem 2 — why exact pruning is NP-hard
+> How many masks keep 3 of 10 weights? How many keep 10% of 100?
+>
+> $$\binom{10}{3} = \frac{10\cdot9\cdot8}{3\cdot2\cdot1} = 120, \qquad \binom{100}{10} \approx \boxed{1.73\times10^{13}}$$
+>
+> Checking each mask would mean evaluating the loss $1.7\times10^{13}$ times for a 100-weight model, which is why the two-step approximation of [[#3.2 Pruning as constrained optimization|§3.2]] is used.
+
+> [!example]- Problem 3 — layer-wise sparsity
+> In Problem 1's network, a scheme prunes layer 1 at $\alpha_1 = 0.5$ (it is sensitive) and layers 2 and 3 at the same $\alpha'$. What must $\alpha'$ be for overall sparsity 0.9?
+>
+> The overall sparsity is the parameter-weighted average: $\frac{1000}{10000}(0.5) + \frac{9000}{10000}\alpha' = 0.9$, so $0.05 + 0.9\alpha' = 0.9$:
+>
+> $$\boxed{\alpha' = 0.944}$$
+>
+> The naive sum $\sum_\ell\alpha_\ell = 0.5 + 0.944 + 0.944 = 2.39$ is not 0.9, which is why the condition must be a weighted average ([[#3.3 How to group weights|§3.3]]).
+
+> [!example]- Problem 4 — magnitude vs Wanda
+> In the neuron of [[#3.5 Activation-aware pruning (Wanda)|§3.5]], $\theta_1 = 0.1$, $\theta_2 = 0.5$, and typical inputs are $\lvert x_1\rvert = 10$, $\lvert x_2\rvert = 0.5$. Which weight does each method prune, and how much output does each removal lose?
+>
+> Magnitude: $\lvert\theta_1\rvert = 0.1 < 0.5$, so it prunes $\theta_1$. Wanda: $\lvert\theta_1\rvert\lvert x_1\rvert = 1.0$ and $\lvert\theta_2\rvert\lvert x_2\rvert = 0.25$, so it prunes $\theta_2$. Removing $\theta_1$ loses a contribution of $1.0$; removing $\theta_2$ loses $0.25$.
+>
+> $$\boxed{\text{magnitude prunes } \theta_1 \text{ (loses 1.0)}; \ \text{Wanda prunes } \theta_2 \text{ (loses 0.25)}}$$
+
+> [!example]- Problem 5 — Optimal Brain Damage
+> Three weights have values $\theta = (0.4, -0.1, 0.3)$ and diagonal Hessian entries $H = (0.5, 20, 2)$. Rank them by OBD score and by magnitude.
+>
+> OBD scores $\frac12H_{jj}\theta_j^2$: $\frac12(0.5)(0.16) = 0.04$, $\frac12(20)(0.01) = 0.10$, $\frac12(2)(0.09) = 0.09$. Magnitudes: $0.4, 0.1, 0.3$.
+>
+> $$\boxed{\text{OBD prunes } \theta_1 \ (0.04); \ \text{magnitude prunes } \theta_2 \ (0.1)}$$
+>
+> $\theta_2$ is the smallest weight but sits in a sharply curved direction, so OBD keeps it; $\theta_1$ is the largest but the loss is flat along it.
+
+> [!example]- Problem 6 — asymmetric uint8 quantization
+> Activations range over $[-1, 3]$. Find $s$ and $z$ for uint8, quantize $x = 1.0$, and dequantize it.
+>
+> $q_{\min} = 0$, $q_{\max} = 255$. Then $s = (3 - (-1))/255 = 0.015686$ and $z = \text{round}(0 - (-1)/0.015686) = \text{round}(63.75) = 64$. For $x = 1.0$: $q = \text{round}(1.0/0.015686) + 64 = \text{round}(63.75) + 64 = 128$. Dequantizing: $\hat x = 0.015686 \times (128 - 64) = 1.0039$.
+>
+> $$\boxed{s = 0.01569, \ z = 64, \ q = 128, \ \hat x = 1.0039}$$
+>
+> The error, $0.0039$, is below $s/2 = 0.0078$, as it must be. Check the ends: $x = -1 \mapsto \text{round}(-63.75) + 64 = 0$ and $x = 3 \mapsto \text{round}(191.25) + 64 = 255$.
+
+> [!example]- Problem 7 — symmetric int8 quantization
+> Weights range over $[-0.6, 0.9]$. Find $s$, quantize $w = -0.5$, and find how many integer levels go unused.
+>
+> $s = \max(0.6, 0.9)/127 = 0.0070866$, $z = 0$. Then $q = \text{round}(-0.5/0.0070866) = \text{round}(-70.56) = -71$, and $\hat w = -71 \times 0.0070866 = -0.5031$. The most negative weight maps to $\text{round}(-0.6/0.0070866) = -85$, so the levels $-128$ to $-86$ are never used.
+>
+> $$\boxed{s = 0.00709, \ q = -71, \ \hat w = -0.5031, \ 43 \text{ unused levels}}$$
+
+> [!example]- Problem 8 — the rate of a compressed LLM
+> A 7B-parameter model is stored in fp16. Compare its rate with int4 quantization, and with 50% pruning plus int8.
+>
+> fp16: $7\times10^9 \times 16 = 1.12\times10^{11}$ bits $= 14$ GB. int4: $7\times10^9 \times 4 = 2.8\times10^{10}$ bits $= 3.5$ GB. Pruned and int8: $3.5\times10^9 \times 8 = 2.8\times10^{10}$ bits $= 3.5$ GB.
+>
+> $$\boxed{14 \text{ GB} \to 3.5 \text{ GB in both cases}}$$
+>
+> Both routes cut the rate by 4×, through different factors of [[#2.1 Rate and distortion|§2.1]]'s product (ignoring the cost of storing the mask's positions, which unstructured pruning also has to pay).
+
+> [!example]- Problem 9 — lottery-ticket rounds
+> Each round of the lottery-ticket loop prunes 20% of the remaining weights. How many rounds reach at least 97% sparsity?
+>
+> After $n$ rounds the density is $0.8^n$. We need $0.8^n \le 0.03$, so $n \ge \ln 0.03/\ln 0.8 = 15.7$:
+>
+> $$\boxed{16 \text{ rounds}}$$
+>
+> Each round includes a full retraining, which is the catch-22's cost ([[#3.7 The Lottery Ticket Hypothesis|§3.7]]).
+
+> [!example]- Problem 10 — the generalization gap
+> A model has training loss 0.05 and test loss 0.12. After compression the training loss is 0.07 and the test loss 0.11. Compute the gap and the distortion before and after (use test loss for $L$).
+>
+> Before: $\Delta = 0.12 - 0.05 = 0.07$. After: $\Delta = 0.11 - 0.07 = 0.04$. Distortion $= L(\hat\theta) - L(\theta) = 0.11 - 0.12 = -0.01$.
+>
+> $$\boxed{\Delta: 0.07 \to 0.04, \quad \text{distortion} = -0.01}$$
+>
+> A negative distortion is the left compression move of [[#1.3 Double descent|§1.3]]: the smaller model generalizes better.
+
+> [!example]- Problem 11 — the minimum-norm solution
+> Solve $\theta_1 + \theta_2 = 2$ (one sample, two parameters) with the pseudo-inverse, and compare with the solution $(2, 0)$.
+>
+> $A = [1\ \ 1]$, so $AA^\top = 2$ and $A^{+} = A^\top(AA^\top)^{-1} = \tfrac12[1\ \ 1]^\top$. Then $\hat\theta = A^{+}\cdot 2 = (1, 1)$, with norm $\sqrt2 = 1.414$, while $(2, 0)$ has norm 2.
+>
+> $$\boxed{\hat\theta = (1, 1), \ \lVert\hat\theta\rVert = 1.414 < 2}$$
+>
+> Both fit the data exactly; the pseudo-inverse picks the one with the smallest weights ([[#1.3 Double descent|§1.3]]).
+
+> [!example]- Problem 12 — QAT with the straight-through estimator
+> As in [[#4.7 When to quantize — QAT and the straight-through estimator|§4.7]], $H = \begin{bmatrix}1.1 & 2.2\\ -1.7 & 3.6\end{bmatrix}$ is quantized with $s = 1$, $z = 0$ and the range clipped to $[-2, 2]$. The backward pass delivers $\partial L/\partial \hat H = \begin{bmatrix}0.3 & -0.1\\ 0.2 & 0.5\end{bmatrix}$. Find $\hat H$, the true gradient through the quantizer, and $\partial L/\partial H$ under the plain STE and the clipped STE.
+>
+> Rounding gives $(1, 2, -2, 4)$ and clipping $4 \mapsto 2$, so $\hat H = \begin{bmatrix}1 & 2\\ -2 & 2\end{bmatrix}$. The quantizer is flat at each of these inputs, so the true gradient is $0$ everywhere. The plain STE ([[#^eq-4|eq. (4)]]) copies the incoming gradient; the clipped STE also zeroes the entry that was clipped (3.6 lies outside $[-2, 2]$):
+>
+> $$\boxed{\text{true: } 0; \quad \text{STE: } \begin{bmatrix}0.3 & -0.1\\ 0.2 & 0.5\end{bmatrix}; \quad \text{clipped STE: } \begin{bmatrix}0.3 & -0.1\\ 0.2 & 0\end{bmatrix}}$$
+
+> [!example]- Problem 13 — the outlier moves $s$ and $z$
+> A layer's weights lie in $[-1, 4]$. Quantize asymmetrically to uint8, then repeat after one weight becomes $10^6$ ([[#4.9 When quantization struggles — the outlier problem|§4.9]]). Where does the weight $4$ land in each case? Repeat the second case with symmetric int8.
+>
+> Without the outlier: $s = 5/255 = 0.01961$ and $z = \text{round}(0 + 1/0.01961) = 51$; the weight 4 gives $q = \text{round}(204) + 51 = 255$. With it: $s = (10^6 + 1)/255 = 3921.6$ and $z = \text{round}(1/3921.6) = \text{round}(0.00026) = 0$; the weight 4 gives $q = \text{round}(0.001) + 0 = 0$, so $\hat w = 0$. Symmetric int8: $s = 10^6/127 = 7874$, and every $\lvert w\rvert \le 4$ has $\lvert w\rvert/s < 0.001$, so it rounds to 0.
+>
+> $$\boxed{z: 51 \to 0, \quad s: 0.0196 \to 3922, \quad \text{all eleven ordinary weights} \mapsto 0}$$
+>
+> The outlier changes both $s$ and $z$ (the question in your paper notes), and wipes out every other weight.
+
+> [!example]- Problem 14 — low-rank and Hadamard parameter counts
+> A $4096\times4096$ weight is replaced by a rank-64 factorization. What is the compression ratio? With the parameters of a rank-16 factorization, what maximum rank does the Hadamard construction of [[#5.2 More rank from the same parameters — the Hadamard product|§5.2]] reach?
+>
+> Dense: $4096^2 = 16{,}777{,}216$. Rank 64: $64(4096 + 4096) = 524{,}288$, a ratio of $32$. A rank-16 factorization costs $16 \times 8192 = 131{,}072$ parameters; spent as two rank-8 branches, it has the same count and rank up to $8^2 = 64$.
+>
+> $$\boxed{32\times \text{ smaller}; \quad \text{rank } 64 \text{ instead of } 16 \text{ for } 131{,}072 \text{ parameters}}$$
+
+> [!example]- Problem 15 — temperature makes a teacher lenient
+> A teacher's logits are $v = (4, 2, 0)$. Compute $p$ and its entropy at $\rho = 1$ and $\rho = 4$.
+>
+> At $\rho = 1$: $e^4, e^2, e^0 = 54.60, 7.389, 1$, total $62.99$, so $p = (0.867, 0.117, 0.016)$ and $H = -\sum p_i\ln p_i = 0.441$ nats. At $\rho = 4$ the logits become $(1, 0.5, 0)$: $e^1, e^{0.5}, 1 = 2.718, 1.649, 1$, total $5.367$, so $p = (0.506, 0.307, 0.186)$ and $H = 1.020$ nats.
+>
+> $$\boxed{\rho = 1:\ (0.867, 0.117, 0.016),\ H = 0.44; \qquad \rho = 4:\ (0.506, 0.307, 0.186),\ H = 1.02}$$
+>
+> The maximum, for the uniform distribution, is $\ln 3 = 1.099$: at $\rho = 4$ the teacher is lenient ([[#6.5 Strict vs lenient teacher|§6.5]]) but still ranks the classes.
+
+> [!example]- Problem 16 — distillation at high temperature is logit matching
+> With $K = 3$, $\rho = 10$, teacher logits $v = (2, 0, -2)$ and student logits $z = (1, 0, -1)$ (both zero-mean), compare the exact gradient $\rho(q_i - p_i)$ with the approximation $(z_i - v_i)/K$ of [[#6.3 Why the ρ² factor — distillation becomes logit MSE|§6.3]].
+>
+> $p = \text{softmax}(v/10) = (0.402, 0.329, 0.269)$ and $q = \text{softmax}(z/10) = (0.367, 0.332, 0.301)$. Exact: $10(q - p) = (-0.346, 0.033, 0.313)$. Approximation: $\tfrac13(-1, 0, 1) = (-0.333, 0, 0.333)$.
+>
+> $$\boxed{\text{exact } (-0.346, 0.033, 0.313) \approx \text{MSE gradient } (-0.333, 0, 0.333)}$$
+>
+> Both push $z_1$ up and $z_3$ down towards the teacher's more spread-out logits; the approximation improves as $\rho$ grows.
+
+> [!example]- Problem 17 — the DKD decomposition
+> With four classes and target $t = 1$, the teacher gives $p = (0.8, 0.06, 0.08, 0.06)$ and the student $q = (0.7, 0.1, 0.08, 0.12)$. Compute $\mathrm{KL}(p\Vert q)$, TCKD and NCKD, and check [[#^eq-6|eq. (6)]].
+>
+> Directly, $\mathrm{KL} = 0.8\ln\frac{0.8}{0.7} + 0.06\ln\frac{0.06}{0.1} + 0.08\ln 1 + 0.06\ln\frac{0.06}{0.12} = 0.1068 - 0.0306 + 0 - 0.0416 = 0.0346$. TCKD on $b^T = (0.8, 0.2)$, $b^S = (0.7, 0.3)$: $0.8\ln\frac87 + 0.2\ln\frac23 = 0.1068 - 0.0811 = 0.0257$. NCKD on $\hat p = (0.3, 0.4, 0.3)$, $\hat q = (0.333, 0.267, 0.4)$: $0.3\ln0.9 + 0.4\ln1.5 + 0.3\ln0.75 = -0.0316 + 0.1622 - 0.0863 = 0.0443$.
+>
+> $$\boxed{0.0257 + (1 - 0.8)(0.0443) = 0.0346 = \mathrm{KL}(p\Vert q)}$$
+>
+> In plain KD the non-target mismatch, the larger of the two, enters with weight only $0.2$; DKD gives it its own weight $\gamma_{\text{NC}}$ ([[#6.8 Decoupled knowledge distillation (DKD)|§6.8]]).
+
+> [!example]- Problem 18 — measuring gradient conflict
+> A student gives $q = (0.6, 0.3, 0.1)$ on a three-class example with true class 1, so $y = (1, 0, 0)$; the teacher gives $p = (0.5, 0.4, 0.1)$. With $\rho = 1$, compute the logit gradients of $L_{\text{CE}}$ and $L_{\text{KD}}$, their cosine ([[#^eq-7|eq. (7)]]), and the length of the update with $\lambda = \mu = 0.5$ ([[#6.10 Gradient conflict between the CE and KD terms|§6.10]]).
+>
+> $g_{\text{CE}} = q - y = (-0.4, 0.3, 0.1)$ and $g_{\text{KD}} = q - p = (0.1, -0.1, 0)$. The dot product is $-0.04 - 0.03 + 0 = -0.07$, and the norms are $\sqrt{0.26} = 0.510$ and $\sqrt{0.02} = 0.141$, so $\cos = -0.07/(0.510 \times 0.141) = -0.971$. The combined gradient is $0.5g_{\text{CE}} + 0.5g_{\text{KD}} = (-0.15, 0.10, 0.05)$, of length $0.187$.
+>
+> $$\boxed{\cos(g_{\text{CE}}, g_{\text{KD}}) = -0.97, \quad \lVert\text{update}\rVert = 0.187 < 0.255 = \lVert 0.5\,g_{\text{CE}}\rVert}$$
+>
+> The student is more confident on the target than the teacher ($0.6 > 0.5$), so KD pushes the target logit down while CE pushes it up, and the KD half of the update undoes part of the CE half.
+
+> [!example]- Problem 19 — Gram–Schmidt harmonization
+> Apply [[#^eq-8|eq. (8)]] to Problem 18's gradients and give the harmonized update.
+>
+> $\frac{g_{\text{KD}}\cdot g_{\text{CE}}}{\lVert g_{\text{CE}}\rVert^2} = \frac{-0.07}{0.26} = -0.2692$, so $g_{\text{KD}}^{\perp} = (0.1, -0.1, 0) + 0.2692\,(-0.4, 0.3, 0.1) = (-0.0077, -0.0192, 0.0269)$. Check: $g_{\text{KD}}^{\perp}\cdot g_{\text{CE}} = 0.0031 - 0.0058 + 0.0027 = 0$. The update $0.5g_{\text{CE}} + 0.5g_{\text{KD}}^{\perp} = (-0.204, 0.140, 0.063)$.
+>
+> $$\boxed{g_{\text{KD}}^{\perp} = (-0.0077, -0.0192, 0.0269), \quad \text{update} = (-0.204, 0.140, 0.063)}$$
+>
+> The CE part of the step is now intact, and only the KD direction that CE does not oppose remains.
+
+> [!example]- Problem 20 — momentum filters a zig-zag
+> The gradient along one coordinate alternates, $g_t = 0.2 + (-1)^t$ (so $-0.8, 1.2, -0.8, \dots$), with a true average of 0.2. With $\beta_m = 0.9$ and $v_0 = 0$ in [[#^eq-9|eq. (9)]], compute $v_1$ to $v_4$ and the size of $v$'s long-run oscillation.
+>
+> $v_1 = 0.1(-0.8) = -0.08$; $v_2 = 0.9(-0.08) + 0.1(1.2) = 0.048$; $v_3 = 0.0432 - 0.08 = -0.0368$; $v_4 = -0.0331 + 0.12 = 0.0869$. In steady state $v_t = 0.2 + A(-1)^t$; substituting, $A(-1)^t = -0.9A(-1)^{t} + 0.1(-1)^t$, so $A = 0.1/1.9 = 0.053$.
+>
+> $$\boxed{v_t \to 0.2 \pm 0.053, \ \text{versus raw gradients } 0.2 \pm 1}$$
+>
+> The oscillation shrinks by a factor of $(1 - \beta_m)/(1 + \beta_m) = 1/19$ while the consistent component passes unchanged: the low-pass filter of [[#6.11 Resolving the conflict — gradient harmonization and momentum|§6.11]].
+
+> [!example]- Problem 21 — the FitNets regressor
+> The student's hint features are 384-dimensional per token and the teacher's 768. How many parameters does a one-layer linear regressor $\text{Reg}$ ([[#^eq-10|eq. (10)]]) need?
+>
+> A $384 \to 768$ linear layer has $384 \times 768$ weights and $768$ biases:
+>
+> $$\boxed{294{,}912 + 768 = 295{,}680 \text{ parameters}}$$
+>
+> These are trained with the student and thrown away afterwards; their capacity is the "ideal regressor" question of [[#6.13 FitNets — feature-level distillation|§6.13]].
+
+> [!example]- Problem 22 — the CRD ratio and temperature
+> The teacher–student positive pair has cosine 0.8, and three negatives have cosines $0.1, -0.2, 0.3$. With $\text{sim} = \exp(\cos/\tau)$, compute [[#^eq-11|eq. (11)]] and the loss $-\ln(\cdot)$ at $\tau = 0.1$ and $\tau = 1$.
+>
+> At $\tau = 0.1$: $e^{8} = 2981.0$ and the negatives give $e^{1} + e^{-2} + e^{3} = 2.718 + 0.135 + 20.086 = 22.94$, so the ratio is $2981.0/3003.9 = 0.9924$ and the loss $0.0077$. At $\tau = 1$: $e^{0.8} = 2.226$ against $1.105 + 0.819 + 1.350 = 3.274$, so the ratio is $2.226/5.499 = 0.405$ and the loss $0.905$.
+>
+> $$\boxed{\tau = 0.1:\ 0.992,\ L = 0.008; \qquad \tau = 1:\ 0.405,\ L = 0.905}$$
+>
+> A low temperature sharpens the differences between similarities, so the same geometry is scored as almost solved; with $\tau = 1$ the negatives still claim most of the denominator.
+
+> [!example]- Problem 23 — the fooled discriminator
+> In adversarial distillation ([[#6.15 Adversarial distillation and other divergences|§6.15]]), the discriminator outputs $D(r)$, the probability that representation $r$ came from the teacher. Its optimum is $D^*(r) = \frac{p_T(r)}{p_T(r) + p_S(r)}$. What is $D^*$ when the student's representations match the teacher's, and what is the discriminator's binary cross-entropy $-\ln D(r_T) - \ln(1 - D(r_S))$ there?
+>
+> If $p_S = p_T$, then $D^* = p_T/(2p_T) = 0.5$ everywhere, and the loss is $-\ln 0.5 - \ln 0.5 = 2\ln 2$:
+>
+> $$\boxed{D^* = 0.5, \quad \text{BCE} = 2\ln 2 = 1.386}$$
+>
+> This is the equilibrium of [[ATML_Lecture_4 - GANs, and Inductive Biases#1.2 The Discriminator, the Generator, and the Equilibrium|Lecture 4 §1.2]]: the discriminator can do no better than a coin flip.
 
 ---
 

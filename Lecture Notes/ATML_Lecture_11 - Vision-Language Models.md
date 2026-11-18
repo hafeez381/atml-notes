@@ -662,139 +662,156 @@ Your notes end with a VLM taking visual tokens $V$ and text $T$ as $X$ and retur
 
 ## Numerical Problems
 
-**Problem 1 (CLIP loss and zero-shot prediction).** A batch of $N = 3$ pairs has cosine similarities $v_i^\top t_j$
-
-$$\begin{bmatrix}0.8 & 0.2 & 0.1\\ 0.3 & 0.7 & 0.2\\ 0.1 & 0.4 & 0.6\end{bmatrix}$$
-
-with $\tau = 0.1$. Compute $L_{i2t}$, $L_{t2i}$ and $L_c$, and the zero-shot prediction for each image.
-
-Dividing by $\tau$ gives $S = \begin{bmatrix}8&2&1\\3&7&2\\1&4&6\end{bmatrix}$. Row $i$ contributes $-s_{ii} + \log\sum_j e^{s_{ij}}$. The row log-sum-exps are $8.0034$, $7.0247$ and $6.1328$, so the row losses are $0.0034$, $0.0247$ and $0.1328$, with mean $L_{i2t} = 0.0537$. The column log-sum-exps are $8.0076$, $7.0550$ and $6.0247$, so the column losses are $0.0076$, $0.0550$ and $0.0247$, with mean $L_{t2i} = 0.0291$. By [[#^eq-1|eq. (1)]], $L_c = \tfrac12(0.0537 + 0.0291)$. Every row's maximum is on the diagonal, so every image retrieves its own caption.
-
-$$\boxed{L_{i2t} = 0.0537,\quad L_{t2i} = 0.0291,\quad L_c = 0.0414;\quad \hat j = (1, 2, 3)}$$
-
-Image 3 has the largest loss because its caption is only 0.2 ahead of caption 2 in cosine. With $\tau = 1$ instead, the first row's loss alone is $0.7156$: a high temperature flattens the softmax, so even a correct ranking costs a lot.
-
-**Problem 2 (alignment and uniformity).** For image 1 of Problem 1, split its $L_{i2t}$ term into the alignment and uniformity parts of [[#3.3 Why the loss promotes the gap, alignment vs uniformity|§3.3]], and give the softmax probabilities.
-
-The alignment part is $-s_{11} = -8$ and the uniformity part is $\log(e^8 + e^2 + e^1) = 8.0034$. The softmax probabilities are $e^{s_{1j}}/e^{8.0034}$.
-
-$$\boxed{-8 + 8.0034 = 0.0034;\quad p = (0.9966,\ 0.0025,\ 0.0009)}$$
-
-The loss can be lowered either by raising $s_{11}$ (alignment) or by lowering $s_{12}$ and $s_{13}$ (uniformity). Nothing in either term refers to image–image or text–text similarity.
-
-**Problem 3 (SigLIP loss).** A batch of $N = 2$ has logits $s = \begin{bmatrix}2 & -1\\ 0.5 & 3\end{bmatrix}$. Compute $L_{\text{SigLIP}}$.
-
-The sigmoids are $\sigma(2) = 0.8808$, $\sigma(-1) = 0.2689$, $\sigma(0.5) = 0.6225$ and $\sigma(3) = 0.9526$. The diagonal entries are positives, costing $-\log\sigma$: $0.1269$ and $0.0486$. The off-diagonal entries are negatives, costing $-\log(1-\sigma)$: $0.3133$ and $0.9741$. By [[#^eq-2|eq. (2)]] the loss is the mean of the four.
-
-$$\boxed{L_{\text{SigLIP}} = \tfrac14(0.1269 + 0.3133 + 0.9741 + 0.0486) = 0.3657}$$
-
-The worst term is the negative pair $(2, 1)$ at logit 0.5: the model leans towards "match" for a non-matching pair. That pair is penalized on its own, without reference to the rest of row 2.
-
-**Problem 4 (class imbalance and the SigLIP bias).** With $N = 32{,}768$, what fraction of SigLIP's labels are positive? Show that initializing the logit bias at $b = -10$ makes the initial prediction close to that fraction.
-
-There are $N^2 - N = 1{,}073{,}709{,}056$ negatives and $N$ positives, so the positive fraction is $N/N^2 = 1/N = 3.05\times10^{-5}$. At initialization the cosines are near 0, so $s_{ij}\approx b = -10$ and $\sigma(-10) = 4.54\times10^{-5}$.
-
-$$\boxed{1/N = 3.05\times10^{-5}\ \approx\ \sigma(-10) = 4.54\times10^{-5}}$$
-
-Starting with the prior close to the true positive rate means the first steps aren't spent pushing a billion negatives down from $\sigma = 0.5$. That is how the paper counters the imbalance of [[#4.2 When SigLIP is good, and its costs|§4.2]].
-
-**Problem 5 (the InfoNCE bound and batch size).** A CLIP run with $N = 32{,}768$ reaches $L_{i2t} = 2.0$ nats. What lower bound does this give on the image–text mutual information, and what is the most any $N = 256$ run could certify?
-
-$I \ge \ln N - L = \ln 32768 - 2.0 = 10.397 - 2.0$. For $N = 256$ the bound can never exceed $\ln 256$, reached only at $L = 0$.
-
-$$\boxed{I \ge 8.40\ \text{nats};\qquad N = 256:\ \text{bound} \le \ln 256 = 5.55\ \text{nats}}$$
-
-This is the batch-size ceiling of [[ATML_Lecture_3 - Discriminative, Contrastive, and Generative Models#3.3 InfoNCE as a Lower Bound on Mutual Information|Lecture 3 §3.3]], and the reason the softmax loss wants large $N$ while SigLIP is preferred at small $N$.
-
-**Problem 6 (angles, distances and the modality gap).** (a) Two unit embeddings have cosine 0.3; find their Euclidean distance. (b) In 3D, put three images at $v_k = (\cos30°\cos a_k,\ \cos30°\sin a_k,\ \sin30°)$ and their captions at $t_k = (\cos30°\cos a_k,\ \cos30°\sin a_k,\ -\sin30°)$, with $a_k = 0°, 120°, 240°$. Find the matched and mismatched cosines, and the gap $\lVert\mu_V - \mu_T\rVert$ between the two centroids.
-
-(a) $\lVert v - t\rVert^2 = 2 - 2(0.3) = 1.4$, so the distance is $1.183$. (b) A matched pair shares $a_k$, so $v_k^\top t_k = \cos^2 30° - \sin^2 30° = 0.75 - 0.25 = 0.5$. A mismatched pair differs by $120°$ in $a$, so $v_k^\top t_m = 0.75\cos120° - 0.25 = -0.375 - 0.25 = -0.625$. The $\cos a_k$ and $\sin a_k$ terms average to zero over the three angles, so $\mu_V = (0, 0, 0.5)$ and $\mu_T = (0, 0, -0.5)$.
-
-$$\boxed{\text{(a) } 1.183\qquad \text{(b) matched } 0.5,\ \text{mismatched } -0.625,\ \lVert\mu_V-\mu_T\rVert = 1.0}$$
-
-Every matched pair beats every mismatched pair, so a contrastive loss is satisfied. Yet all images sit in the upper hemisphere and all captions in the lower one: the image cloud and the text cloud never meet. This is the persistent gap of [[#3.2 Property 2, the persistent modality gap|§3.2]]. It hides in a direction (here the third axis) that the ranking of pairs doesn't care about.
-
-**Problem 7 (MLP projector size).** A two-layer MLP maps CLIP features of size $d_v = 1024$ to an LLM of width 4096 ($1024\to4096\to4096$, with biases). Count its parameters, and the visual tokens for a $336\times336$ image with $14\times14$ patches.
-
-$1024\cdot4096 + 4096 = 4{,}198{,}400$ and $4096\cdot4096 + 4096 = 16{,}781{,}312$. The patch grid is $336/14 = 24$ per side, so $24^2 = 576$ patches.
-
-$$\boxed{20{,}979{,}712\approx 21\text{M parameters};\quad 576\ \text{visual tokens}}$$
-
-21M parameters is tiny next to a 7B LLM. This is why stage 1 of [[#7.5 Training stages|§7.5]] trains only the connector.
-
-**Problem 8 (what the Q-Former saves).** A prompt has 100 text tokens. Compare the LLM's self-attention score count when the image enters as 576 MLP-projected tokens and when it enters as 32 Q-Former tokens.
-
-With the MLP bridge the sequence has $676$ tokens, so there are $676^2 = 456{,}976$ scores per head per layer. With the Q-Former it has $132$, so $132^2 = 17{,}424$.
-
-$$\boxed{456{,}976\ \text{vs}\ 17{,}424:\ \approx 26\times\ \text{fewer}}$$
-
-The price is the bottleneck: 32 tokens must hold everything the question might need, which risks the perception failures of [[#8.1 Five failure types|§8.1]] for small details.
-
-**Problem 9 (gated cross-attention).** A hidden state $h = (1, -2)$ receives a cross-attention output $(0.4, 0.6)$ through a $\tanh(\alpha)$ gate. Give the layer output at $\alpha = 0$ and at $\alpha = 0.5$. With 200 text tokens and 64 visual tokens, compare the cross-attention score count with self-attention over the concatenated sequence.
-
-At $\alpha = 0$, $y = h = (1, -2)$, so the LLM is unchanged. At $\alpha = 0.5$, $\tanh(0.5) = 0.4621$, so $y = (1 + 0.1848,\ -2 + 0.2773)$. Cross-attention scores each text query against each visual key, $200\times64 = 12{,}800$. Self-attention over $264$ concatenated tokens gives $264^2 = 69{,}696$.
-
-$$\boxed{y_{\alpha=0} = (1, -2),\quad y_{\alpha=0.5} = (1.185,\ -1.723);\quad 12{,}800\ \text{vs}\ 69{,}696\ (5.4\times)}$$
-
-**Problem 10 (FLAVA loss and batches).** With $\lambda = (1, 0.5, 0.5, 1, 1)$ and component losses $L_{\text{cont}} = 2.1$, $L_{\text{MIM}} = 4.0$, $L_{\text{MLM}} = 3.2$, $L_{\text{ITM}} = 0.45$ and $L_{\text{MMM}} = 3.6$, compute $L_{\text{FLAVA}}$. Which terms can be computed on a batch of captionless images?
-
-By [[#^eq-3|eq. (3)]], $L_{\text{FLAVA}} = 2.1 + 0.5(4.0) + 0.5(3.2) + 0.45 + 3.6$. A captionless image batch supports only $L_{\text{MIM}}$; the other four need text, and $L_{\text{cont}}$, $L_{\text{ITM}}$, $L_{\text{MMM}}$ need matched pairs.
-
-$$\boxed{L_{\text{FLAVA}} = 9.75;\quad \text{image-only batch} \to L_{\text{MIM}}\ \text{only}}$$
-
-**Problem 11 (early-fusion context budget).** A Chameleon-style model turns each $512\times512$ image into 1024 tokens and has a 4096-token context. How many whole images fit alongside a 200-token prompt?
-
-$(4096 - 200)/1024 = 3.80$, so three images fit.
-
-$$\boxed{3\ \text{images}}$$
-
-Images dominate the context in early-fusion models, which is the same pressure that motivates the Q-Former's compression in [[#7.3 Bridge 2, bottleneck resampler (Q-Former)|§7.3]].
-
-**Problem 12 (ViT tokens and the patch-embedding size).** A $224\times224\times3$ image goes through a ViT with $P = 16$ and $d = 768$. Find $N_p$, the length of each patch vector, the shape of $Z_0$, and the number of parameters in $E$ and $b$. Check that a convolution with kernel 16, stride 16 and 768 output channels has the same count.
-
-$N_p = (224\cdot224)/16^2 = 196$. Each patch vector has $P^2C = 16\cdot16\cdot3 = 768$ entries. Adding [CLS] gives $Z_0\in\mathbb R^{197\times768}$. $E$ is $768\times768 = 589{,}824$ weights and $b$ adds 768. The convolution has 768 filters of $16\times16\times3 = 768$ weights each plus one bias per filter: $768\cdot768 + 768$.
-
-$$\boxed{N_p = 196,\quad x_i\in\mathbb R^{768},\quad Z_0: 197\times768,\quad 590{,}592\ \text{parameters either way}}$$
-
-**Problem 13 (read-out options).** After the last layer, a toy ViT with $d = 2$ has $z_L^{(0)} = (0.5, 0.1)$ and patch rows $(1, 0)$, $(0, 2)$, $(-1, 1)$. Give the [CLS], mean-pooled and max-pooled read-outs, and the attention-pooled one with query $q = (1, 1)$ (scores $q^\top z_L^{(i)}$, softmax weights).
-
-[CLS] is $(0.5, 0.1)$. Mean over the three patches: $\big((1 + 0 - 1)/3,\ (0 + 2 + 1)/3\big) = (0, 1)$. Max per coordinate: $(1, 2)$. Attention scores are $1, 2, 0$, so the weights are $e^{1}, e^{2}, e^{0}$ over their sum $11.107$: $(0.2447, 0.6652, 0.0900)$. The pooled vector is $0.2447(1, 0) + 0.6652(0, 2) + 0.0900(-1, 1)$.
-
-$$\boxed{\text{CLS } (0.5, 0.1),\quad \text{mean } (0, 1),\quad \text{max } (1, 2),\quad \text{attention } (0.155, 1.420)}$$
-
-Each is one vector for the whole image. Whatever patch 2 held about *where* something was is now mixed in with the rest, which is why the VLM of [[#9.4 Why a VLM keeps every patch token|§9.4]] keeps all the rows.
-
-**Problem 14 (vector quantization and its two losses).** A codebook has $e_1 = (0, 0)$, $e_2 = (1, 1)$, $e_3 = (2, 0)$. An encoder output is $z_{ij} = (0.9, 0.6)$. Find $q_{ij}$ and $z^q_{ij}$, the codebook and commitment losses for this cell with $\beta = 0.25$, and the gradient each sends (to the code and to $z_{ij}$).
-
-The squared distances are $0.9^2 + 0.6^2 = 1.17$, $0.1^2 + 0.4^2 = 0.17$ and $1.1^2 + 0.6^2 = 1.57$, so by [[#^eq-6|eq. (6)]] $q_{ij} = 2$ and $z^q_{ij} = (1, 1)$. Both losses use the distance $0.17$: $L_{\text{codebook}} = 0.17$ and $L_{\text{commitment}} = 0.25\cdot0.17$. With $z$ frozen, the codebook loss's gradient on $e_2$ is $2(e_2 - z_{ij}) = (0.2, 0.8)$. With $z^q$ frozen, the commitment loss's gradient on $z_{ij}$ is $2\beta(z_{ij} - e_2) = (-0.05, -0.2)$.
-
-$$\boxed{q_{ij} = 2,\ z^q_{ij} = (1, 1);\quad L_{\text{codebook}} = 0.17,\ L_{\text{commitment}} = 0.0425;\quad \nabla_{e_2} = (0.2, 0.8),\ \nabla_{z_{ij}} = (-0.05, -0.2)}$$
-
-Gradient descent moves $e_2$ towards $z_{ij}$ and $z_{ij}$ towards $e_2$, and $\beta$ makes the encoder's step four times smaller than the code's.
-
-**Problem 15 (token budget and vocabulary growth).** A tokenizer downsamples $256\times256\times3$ images by 16 in each direction and has $K = 8192$ codes. How many tokens and bits describe one image, and how does that compare with raw 8-bit pixels? With a 20-token prompt, how long is the sequence $[\langle\text{boi}\rangle, \text{image}, \langle\text{eoi}\rangle, \text{text}]$? If the LLM has width 4096, how many new parameters do the codes add to its input embedding and output layer?
-
-$h = w = 256/16 = 16$, so $256$ tokens, each one of $8192 = 2^{13}$ codes, so 13 bits: $256\cdot13 = 3328$ bits. Raw pixels take $256\cdot256\cdot3\cdot8 = 1{,}572{,}864$ bits. The sequence has $1 + 256 + 1 + 20$ tokens. Each code needs an embedding row and an output row of size 4096: $2\cdot8192\cdot4096$.
-
-$$\boxed{256\ \text{tokens},\ 3328\ \text{bits}\ (\approx473\times\ \text{smaller});\quad 278\ \text{tokens};\quad 67{,}108{,}864\ \text{new parameters}}$$
-
-The compression is what makes images affordable as tokens. The new rows start untrained, which is why your notes say the LLM must be retrained ([[#10.4 Image understanding with token IDs|§10.4]]).
-
-**Problem 16 (why raster-scan AR is slow).** Generating the 256-token image of Problem 15, how many sequential forward passes does raster-scan AR need, and how many does a masked-token generator with 8 refinement steps need?
-
-AR emits one token per pass: 256 passes. The masked generator predicts every token in each pass: 8 passes.
-
-$$\boxed{256\ \text{vs}\ 8:\ 32\times\ \text{fewer sequential steps}}$$
-
-Each masked-generator pass processes all 256 positions at once, so it does more work than one AR step with a [[ATML_Lecture_7 - LLM Foundations#3.5 The KV cache|KV cache]]. The saving is in latency, the number of steps that must wait for each other ([[#10.7 Other families beyond raster-scan autoregression|§10.7]]).
-
-**Problem 17 (the adversarial loss).** The discriminator outputs the probability that its input is real. Taking $L_{\text{adversarial}} = -\log \text{Disc}(\hat x)$ for the tokenizer, evaluate it when $\text{Disc}(\hat x) = 0.1$, $0.5$ and $0.9$.
-
-$-\ln 0.1 = 2.303$, $-\ln 0.5 = 0.693$ and $-\ln 0.9 = 0.105$.
-
-$$\boxed{2.303,\quad 0.693,\quad 0.105}$$
-
-At 0.5 the discriminator is "maximally confused" ([[#10.3 Training the tokenizer, five losses|§10.3]]): it can't tell $\hat x$ from $x$. The loss keeps falling past 0.5 because the tokenizer is rewarded for fooling a discriminator that is still learning. *(The professor writes $\text{Disc}(x, \hat x)$, a discriminator that sees both images; the single-input form here is the standard GAN generator loss of [[ATML_Lecture_4 - GANs, and Inductive Biases#1.7 Saturating vs. Non-Saturating GANs|Lecture 4 §1.7]].)*
+> [!example]- Problem 1 (CLIP loss and zero-shot prediction)
+> A batch of $N = 3$ pairs has cosine similarities $v_i^\top t_j$
+>
+> $$\begin{bmatrix}0.8 & 0.2 & 0.1\\ 0.3 & 0.7 & 0.2\\ 0.1 & 0.4 & 0.6\end{bmatrix}$$
+>
+> with $\tau = 0.1$. Compute $L_{i2t}$, $L_{t2i}$ and $L_c$, and the zero-shot prediction for each image.
+>
+> Dividing by $\tau$ gives $S = \begin{bmatrix}8&2&1\\3&7&2\\1&4&6\end{bmatrix}$. Row $i$ contributes $-s_{ii} + \log\sum_j e^{s_{ij}}$. The row log-sum-exps are $8.0034$, $7.0247$ and $6.1328$, so the row losses are $0.0034$, $0.0247$ and $0.1328$, with mean $L_{i2t} = 0.0537$. The column log-sum-exps are $8.0076$, $7.0550$ and $6.0247$, so the column losses are $0.0076$, $0.0550$ and $0.0247$, with mean $L_{t2i} = 0.0291$. By [[#^eq-1|eq. (1)]], $L_c = \tfrac12(0.0537 + 0.0291)$. Every row's maximum is on the diagonal, so every image retrieves its own caption.
+>
+> $$\boxed{L_{i2t} = 0.0537,\quad L_{t2i} = 0.0291,\quad L_c = 0.0414;\quad \hat j = (1, 2, 3)}$$
+>
+> Image 3 has the largest loss because its caption is only 0.2 ahead of caption 2 in cosine. With $\tau = 1$ instead, the first row's loss alone is $0.7156$: a high temperature flattens the softmax, so even a correct ranking costs a lot.
+
+> [!example]- Problem 2 (alignment and uniformity)
+> For image 1 of Problem 1, split its $L_{i2t}$ term into the alignment and uniformity parts of [[#3.3 Why the loss promotes the gap, alignment vs uniformity|§3.3]], and give the softmax probabilities.
+>
+> The alignment part is $-s_{11} = -8$ and the uniformity part is $\log(e^8 + e^2 + e^1) = 8.0034$. The softmax probabilities are $e^{s_{1j}}/e^{8.0034}$.
+>
+> $$\boxed{-8 + 8.0034 = 0.0034;\quad p = (0.9966,\ 0.0025,\ 0.0009)}$$
+>
+> The loss can be lowered either by raising $s_{11}$ (alignment) or by lowering $s_{12}$ and $s_{13}$ (uniformity). Nothing in either term refers to image–image or text–text similarity.
+
+> [!example]- Problem 3 (SigLIP loss)
+> A batch of $N = 2$ has logits $s = \begin{bmatrix}2 & -1\\ 0.5 & 3\end{bmatrix}$. Compute $L_{\text{SigLIP}}$.
+>
+> The sigmoids are $\sigma(2) = 0.8808$, $\sigma(-1) = 0.2689$, $\sigma(0.5) = 0.6225$ and $\sigma(3) = 0.9526$. The diagonal entries are positives, costing $-\log\sigma$: $0.1269$ and $0.0486$. The off-diagonal entries are negatives, costing $-\log(1-\sigma)$: $0.3133$ and $0.9741$. By [[#^eq-2|eq. (2)]] the loss is the mean of the four.
+>
+> $$\boxed{L_{\text{SigLIP}} = \tfrac14(0.1269 + 0.3133 + 0.9741 + 0.0486) = 0.3657}$$
+>
+> The worst term is the negative pair $(2, 1)$ at logit 0.5: the model leans towards "match" for a non-matching pair. That pair is penalized on its own, without reference to the rest of row 2.
+
+> [!example]- Problem 4 (class imbalance and the SigLIP bias)
+> With $N = 32{,}768$, what fraction of SigLIP's labels are positive? Show that initializing the logit bias at $b = -10$ makes the initial prediction close to that fraction.
+>
+> There are $N^2 - N = 1{,}073{,}709{,}056$ negatives and $N$ positives, so the positive fraction is $N/N^2 = 1/N = 3.05\times10^{-5}$. At initialization the cosines are near 0, so $s_{ij}\approx b = -10$ and $\sigma(-10) = 4.54\times10^{-5}$.
+>
+> $$\boxed{1/N = 3.05\times10^{-5}\ \approx\ \sigma(-10) = 4.54\times10^{-5}}$$
+>
+> Starting with the prior close to the true positive rate means the first steps aren't spent pushing a billion negatives down from $\sigma = 0.5$. That is how the paper counters the imbalance of [[#4.2 When SigLIP is good, and its costs|§4.2]].
+
+> [!example]- Problem 5 (the InfoNCE bound and batch size)
+> A CLIP run with $N = 32{,}768$ reaches $L_{i2t} = 2.0$ nats. What lower bound does this give on the image–text mutual information, and what is the most any $N = 256$ run could certify?
+>
+> $I \ge \ln N - L = \ln 32768 - 2.0 = 10.397 - 2.0$. For $N = 256$ the bound can never exceed $\ln 256$, reached only at $L = 0$.
+>
+> $$\boxed{I \ge 8.40\ \text{nats};\qquad N = 256:\ \text{bound} \le \ln 256 = 5.55\ \text{nats}}$$
+>
+> This is the batch-size ceiling of [[ATML_Lecture_3 - Discriminative, Contrastive, and Generative Models#3.3 InfoNCE as a Lower Bound on Mutual Information|Lecture 3 §3.3]], and the reason the softmax loss wants large $N$ while SigLIP is preferred at small $N$.
+
+> [!example]- Problem 6 (angles, distances and the modality gap)
+> (a) Two unit embeddings have cosine 0.3; find their Euclidean distance. (b) In 3D, put three images at $v_k = (\cos30°\cos a_k,\ \cos30°\sin a_k,\ \sin30°)$ and their captions at $t_k = (\cos30°\cos a_k,\ \cos30°\sin a_k,\ -\sin30°)$, with $a_k = 0°, 120°, 240°$. Find the matched and mismatched cosines, and the gap $\lVert\mu_V - \mu_T\rVert$ between the two centroids.
+>
+> (a) $\lVert v - t\rVert^2 = 2 - 2(0.3) = 1.4$, so the distance is $1.183$. (b) A matched pair shares $a_k$, so $v_k^\top t_k = \cos^2 30° - \sin^2 30° = 0.75 - 0.25 = 0.5$. A mismatched pair differs by $120°$ in $a$, so $v_k^\top t_m = 0.75\cos120° - 0.25 = -0.375 - 0.25 = -0.625$. The $\cos a_k$ and $\sin a_k$ terms average to zero over the three angles, so $\mu_V = (0, 0, 0.5)$ and $\mu_T = (0, 0, -0.5)$.
+>
+> $$\boxed{\text{(a) } 1.183\qquad \text{(b) matched } 0.5,\ \text{mismatched } -0.625,\ \lVert\mu_V-\mu_T\rVert = 1.0}$$
+>
+> Every matched pair beats every mismatched pair, so a contrastive loss is satisfied. Yet all images sit in the upper hemisphere and all captions in the lower one: the image cloud and the text cloud never meet. This is the persistent gap of [[#3.2 Property 2, the persistent modality gap|§3.2]]. It hides in a direction (here the third axis) that the ranking of pairs doesn't care about.
+
+> [!example]- Problem 7 (MLP projector size)
+> A two-layer MLP maps CLIP features of size $d_v = 1024$ to an LLM of width 4096 ($1024\to4096\to4096$, with biases). Count its parameters, and the visual tokens for a $336\times336$ image with $14\times14$ patches.
+>
+> $1024\cdot4096 + 4096 = 4{,}198{,}400$ and $4096\cdot4096 + 4096 = 16{,}781{,}312$. The patch grid is $336/14 = 24$ per side, so $24^2 = 576$ patches.
+>
+> $$\boxed{20{,}979{,}712\approx 21\text{M parameters};\quad 576\ \text{visual tokens}}$$
+>
+> 21M parameters is tiny next to a 7B LLM. This is why stage 1 of [[#7.5 Training stages|§7.5]] trains only the connector.
+
+> [!example]- Problem 8 (what the Q-Former saves)
+> A prompt has 100 text tokens. Compare the LLM's self-attention score count when the image enters as 576 MLP-projected tokens and when it enters as 32 Q-Former tokens.
+>
+> With the MLP bridge the sequence has $676$ tokens, so there are $676^2 = 456{,}976$ scores per head per layer. With the Q-Former it has $132$, so $132^2 = 17{,}424$.
+>
+> $$\boxed{456{,}976\ \text{vs}\ 17{,}424:\ \approx 26\times\ \text{fewer}}$$
+>
+> The price is the bottleneck: 32 tokens must hold everything the question might need, which risks the perception failures of [[#8.1 Five failure types|§8.1]] for small details.
+
+> [!example]- Problem 9 (gated cross-attention)
+> A hidden state $h = (1, -2)$ receives a cross-attention output $(0.4, 0.6)$ through a $\tanh(\alpha)$ gate. Give the layer output at $\alpha = 0$ and at $\alpha = 0.5$. With 200 text tokens and 64 visual tokens, compare the cross-attention score count with self-attention over the concatenated sequence.
+>
+> At $\alpha = 0$, $y = h = (1, -2)$, so the LLM is unchanged. At $\alpha = 0.5$, $\tanh(0.5) = 0.4621$, so $y = (1 + 0.1848,\ -2 + 0.2773)$. Cross-attention scores each text query against each visual key, $200\times64 = 12{,}800$. Self-attention over $264$ concatenated tokens gives $264^2 = 69{,}696$.
+>
+> $$\boxed{y_{\alpha=0} = (1, -2),\quad y_{\alpha=0.5} = (1.185,\ -1.723);\quad 12{,}800\ \text{vs}\ 69{,}696\ (5.4\times)}$$
+
+> [!example]- Problem 10 (FLAVA loss and batches)
+> With $\lambda = (1, 0.5, 0.5, 1, 1)$ and component losses $L_{\text{cont}} = 2.1$, $L_{\text{MIM}} = 4.0$, $L_{\text{MLM}} = 3.2$, $L_{\text{ITM}} = 0.45$ and $L_{\text{MMM}} = 3.6$, compute $L_{\text{FLAVA}}$. Which terms can be computed on a batch of captionless images?
+>
+> By [[#^eq-3|eq. (3)]], $L_{\text{FLAVA}} = 2.1 + 0.5(4.0) + 0.5(3.2) + 0.45 + 3.6$. A captionless image batch supports only $L_{\text{MIM}}$; the other four need text, and $L_{\text{cont}}$, $L_{\text{ITM}}$, $L_{\text{MMM}}$ need matched pairs.
+>
+> $$\boxed{L_{\text{FLAVA}} = 9.75;\quad \text{image-only batch} \to L_{\text{MIM}}\ \text{only}}$$
+
+> [!example]- Problem 11 (early-fusion context budget)
+> A Chameleon-style model turns each $512\times512$ image into 1024 tokens and has a 4096-token context. How many whole images fit alongside a 200-token prompt?
+>
+> $(4096 - 200)/1024 = 3.80$, so three images fit.
+>
+> $$\boxed{3\ \text{images}}$$
+>
+> Images dominate the context in early-fusion models, which is the same pressure that motivates the Q-Former's compression in [[#7.3 Bridge 2, bottleneck resampler (Q-Former)|§7.3]].
+
+> [!example]- Problem 12 (ViT tokens and the patch-embedding size)
+> A $224\times224\times3$ image goes through a ViT with $P = 16$ and $d = 768$. Find $N_p$, the length of each patch vector, the shape of $Z_0$, and the number of parameters in $E$ and $b$. Check that a convolution with kernel 16, stride 16 and 768 output channels has the same count.
+>
+> $N_p = (224\cdot224)/16^2 = 196$. Each patch vector has $P^2C = 16\cdot16\cdot3 = 768$ entries. Adding [CLS] gives $Z_0\in\mathbb R^{197\times768}$. $E$ is $768\times768 = 589{,}824$ weights and $b$ adds 768. The convolution has 768 filters of $16\times16\times3 = 768$ weights each plus one bias per filter: $768\cdot768 + 768$.
+>
+> $$\boxed{N_p = 196,\quad x_i\in\mathbb R^{768},\quad Z_0: 197\times768,\quad 590{,}592\ \text{parameters either way}}$$
+
+> [!example]- Problem 13 (read-out options)
+> After the last layer, a toy ViT with $d = 2$ has $z_L^{(0)} = (0.5, 0.1)$ and patch rows $(1, 0)$, $(0, 2)$, $(-1, 1)$. Give the [CLS], mean-pooled and max-pooled read-outs, and the attention-pooled one with query $q = (1, 1)$ (scores $q^\top z_L^{(i)}$, softmax weights).
+>
+> [CLS] is $(0.5, 0.1)$. Mean over the three patches: $\big((1 + 0 - 1)/3,\ (0 + 2 + 1)/3\big) = (0, 1)$. Max per coordinate: $(1, 2)$. Attention scores are $1, 2, 0$, so the weights are $e^{1}, e^{2}, e^{0}$ over their sum $11.107$: $(0.2447, 0.6652, 0.0900)$. The pooled vector is $0.2447(1, 0) + 0.6652(0, 2) + 0.0900(-1, 1)$.
+>
+> $$\boxed{\text{CLS } (0.5, 0.1),\quad \text{mean } (0, 1),\quad \text{max } (1, 2),\quad \text{attention } (0.155, 1.420)}$$
+>
+> Each is one vector for the whole image. Whatever patch 2 held about *where* something was is now mixed in with the rest, which is why the VLM of [[#9.4 Why a VLM keeps every patch token|§9.4]] keeps all the rows.
+
+> [!example]- Problem 14 (vector quantization and its two losses)
+> A codebook has $e_1 = (0, 0)$, $e_2 = (1, 1)$, $e_3 = (2, 0)$. An encoder output is $z_{ij} = (0.9, 0.6)$. Find $q_{ij}$ and $z^q_{ij}$, the codebook and commitment losses for this cell with $\beta = 0.25$, and the gradient each sends (to the code and to $z_{ij}$).
+>
+> The squared distances are $0.9^2 + 0.6^2 = 1.17$, $0.1^2 + 0.4^2 = 0.17$ and $1.1^2 + 0.6^2 = 1.57$, so by [[#^eq-6|eq. (6)]] $q_{ij} = 2$ and $z^q_{ij} = (1, 1)$. Both losses use the distance $0.17$: $L_{\text{codebook}} = 0.17$ and $L_{\text{commitment}} = 0.25\cdot0.17$. With $z$ frozen, the codebook loss's gradient on $e_2$ is $2(e_2 - z_{ij}) = (0.2, 0.8)$. With $z^q$ frozen, the commitment loss's gradient on $z_{ij}$ is $2\beta(z_{ij} - e_2) = (-0.05, -0.2)$.
+>
+> $$\boxed{q_{ij} = 2,\ z^q_{ij} = (1, 1);\quad L_{\text{codebook}} = 0.17,\ L_{\text{commitment}} = 0.0425;\quad \nabla_{e_2} = (0.2, 0.8),\ \nabla_{z_{ij}} = (-0.05, -0.2)}$$
+>
+> Gradient descent moves $e_2$ towards $z_{ij}$ and $z_{ij}$ towards $e_2$, and $\beta$ makes the encoder's step four times smaller than the code's.
+
+> [!example]- Problem 15 (token budget and vocabulary growth)
+> A tokenizer downsamples $256\times256\times3$ images by 16 in each direction and has $K = 8192$ codes. How many tokens and bits describe one image, and how does that compare with raw 8-bit pixels? With a 20-token prompt, how long is the sequence $[\langle\text{boi}\rangle, \text{image}, \langle\text{eoi}\rangle, \text{text}]$? If the LLM has width 4096, how many new parameters do the codes add to its input embedding and output layer?
+>
+> $h = w = 256/16 = 16$, so $256$ tokens, each one of $8192 = 2^{13}$ codes, so 13 bits: $256\cdot13 = 3328$ bits. Raw pixels take $256\cdot256\cdot3\cdot8 = 1{,}572{,}864$ bits. The sequence has $1 + 256 + 1 + 20$ tokens. Each code needs an embedding row and an output row of size 4096: $2\cdot8192\cdot4096$.
+>
+> $$\boxed{256\ \text{tokens},\ 3328\ \text{bits}\ (\approx473\times\ \text{smaller});\quad 278\ \text{tokens};\quad 67{,}108{,}864\ \text{new parameters}}$$
+>
+> The compression is what makes images affordable as tokens. The new rows start untrained, which is why your notes say the LLM must be retrained ([[#10.4 Image understanding with token IDs|§10.4]]).
+
+> [!example]- Problem 16 (why raster-scan AR is slow)
+> Generating the 256-token image of Problem 15, how many sequential forward passes does raster-scan AR need, and how many does a masked-token generator with 8 refinement steps need?
+>
+> AR emits one token per pass: 256 passes. The masked generator predicts every token in each pass: 8 passes.
+>
+> $$\boxed{256\ \text{vs}\ 8:\ 32\times\ \text{fewer sequential steps}}$$
+>
+> Each masked-generator pass processes all 256 positions at once, so it does more work than one AR step with a [[ATML_Lecture_7 - LLM Foundations#3.5 The KV cache|KV cache]]. The saving is in latency, the number of steps that must wait for each other ([[#10.7 Other families beyond raster-scan autoregression|§10.7]]).
+
+> [!example]- Problem 17 (the adversarial loss)
+> The discriminator outputs the probability that its input is real. Taking $L_{\text{adversarial}} = -\log \text{Disc}(\hat x)$ for the tokenizer, evaluate it when $\text{Disc}(\hat x) = 0.1$, $0.5$ and $0.9$.
+>
+> $-\ln 0.1 = 2.303$, $-\ln 0.5 = 0.693$ and $-\ln 0.9 = 0.105$.
+>
+> $$\boxed{2.303,\quad 0.693,\quad 0.105}$$
+>
+> At 0.5 the discriminator is "maximally confused" ([[#10.3 Training the tokenizer, five losses|§10.3]]): it can't tell $\hat x$ from $x$. The loss keeps falling past 0.5 because the tokenizer is rewarded for fooling a discriminator that is still learning. *(The professor writes $\text{Disc}(x, \hat x)$, a discriminator that sees both images; the single-input form here is the standard GAN generator loss of [[ATML_Lecture_4 - GANs, and Inductive Biases#1.7 Saturating vs. Non-Saturating GANs|Lecture 4 §1.7]].)*
 
 ---
 

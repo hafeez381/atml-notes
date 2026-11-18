@@ -1251,69 +1251,75 @@ Looking back across the course, the arc from [[ATML_Lecture_1 - Representation a
 
 ## Numerical Problems
 
-**Problem 1 — Reading the DG error bound.** Three source domains have risks $L_1 = 0.10$, $L_2 = 0.14$, $L_3 = 0.18$ under uniform mixture weights $\pi_i = 1/3$. The discrepancy term evaluates to $\gamma = 0.22$, the convex-hull radius is $\rho = 0.09$, and the constant is $0.02$. Compute the bound on $L_T(f_\theta)$, and determine which single lever gives the largest reduction if it could be halved.
+> [!example]- Problem 1 — Reading the DG error bound
+> Three source domains have risks $L_1 = 0.10$, $L_2 = 0.14$, $L_3 = 0.18$ under uniform mixture weights $\pi_i = 1/3$. The discrepancy term evaluates to $\gamma = 0.22$, the convex-hull radius is $\rho = 0.09$, and the constant is $0.02$. Compute the bound on $L_T(f_\theta)$, and determine which single lever gives the largest reduction if it could be halved.
+>
+> *Solution.* Applying the bound of Section 1.2, the weighted source risk is $\frac{1}{3}(0.10 + 0.14 + 0.18) = \frac{0.42}{3} = 0.14$. Adding the remaining three terms, $L_T \le 0.14 + 0.22 + 0.09 + 0.02$.
+>
+> $$\boxed{L_T(f_\theta) \le 0.47}$$
+>
+> Halving each term in turn gives reductions of $0.07$ (source risk), $0.11$ (discrepancy $\gamma$), and $0.045$ (radius $\rho$), so the discrepancy term dominates.
+>
+> *Reasonableness check:* that $\gamma$ is the largest single contributor is the expected situation in DG and is precisely the awkward one — $\gamma$ measures the distance from the target to the convex hull, and since the target is unavailable at training time it cannot be minimized directly. This is why lever 3 of Section 1.3 is phrased indirectly, as *learning a representation whose source hull covers future targets*, rather than as minimizing $\gamma$ outright.
 
-*Solution.* Applying the bound of Section 1.2, the weighted source risk is $\frac{1}{3}(0.10 + 0.14 + 0.18) = \frac{0.42}{3} = 0.14$. Adding the remaining three terms, $L_T \le 0.14 + 0.22 + 0.09 + 0.02$.
+> [!example]- Problem 2 — The positive-pull / negative-push identity
+> A contrastive batch has one positive and four negatives, with similarity scores $s_{\text{pos}} = 3.0$ and $s_1 = 1.0$, $s_2 = 0.5$, $s_3 = 0.0$, $s_4 = -1.0$. Compute $P_{\text{pos}}$, the gradient magnitude at the positive, and the summed gradient over the negatives. Verify the identity of Section 2.6.
+>
+> *Solution.* The exponentials are $e^{3.0} \approx 20.086$, $e^{1.0}\approx 2.718$, $e^{0.5}\approx 1.649$, $e^{0.0} = 1$, and $e^{-1.0}\approx 0.368$, summing to $25.821$. Therefore $P_{\text{pos}} = 20.086/25.821 \approx 0.7779$, and the individual negative probabilities are $P_1 \approx 0.1053$, $P_2 \approx 0.0639$, $P_3 \approx 0.0387$, $P_4 \approx 0.0143$. Using $\partial L/\partial s_{\text{pos}} = P_{\text{pos}} - 1$, the magnitude at the positive is $|0.7779 - 1| = 0.2221$; summing the negatives' gradients $\sum_i P_i \approx 0.1053 + 0.0639 + 0.0387 + 0.0143 = 0.2222$.
+>
+> $$\boxed{P_{\text{pos}} \approx 0.778, \qquad \left|\partial L/\partial s_{\text{pos}}\right| \approx 0.222 = \sum_{i \neq \text{pos}} \partial L/\partial s_i}$$
+>
+> *Reasonableness check:* the two quantities agree to rounding, confirming the boxed identity. Now consider a hard positive with $s_{\text{pos}} = -1.0$ instead: $P_{\text{pos}}$ would fall to roughly $0.06$, making the pull magnitude about $0.94$ — more than four times larger — and that entire $0.94$ would be redistributed as push onto the four negatives regardless of whether they needed moving. That amplification is exactly the wasted-gradient pathology of Section 2.6.
 
-$$\boxed{L_T(f_\theta) \le 0.47}$$
+> [!example]- Problem 3 — SAM perturbation and sharpness
+> At the current parameters the gradient is $g_\theta = (3, 4)^{\top}$ and the neighbourhood radius is $\rho = 0.1$. Compute the linearized worst-case perturbation $\bar\epsilon$. Separately, at a minimum where $\nabla_\theta L = 0$ with $\lambda_{\max}(H_\theta) = 50$, compute the maximum sharpness for the same $\rho$.
+>
+> *Solution.* Applying the boxed result of Section 3.7, $\bar\epsilon = \rho\, g_\theta/\lVert g_\theta\rVert_2$ with $\lVert g_\theta\rVert_2 = \sqrt{9+16} = 5$, giving $\bar\epsilon = 0.1 \times (3/5,\, 4/5)^{\top}$.
+>
+> $$\boxed{\bar{\epsilon} = (0.06,\; 0.08)^{\top}, \qquad \lVert\bar\epsilon\rVert_2 = 0.1 = \rho}$$
+>
+> For the sharpness, the second-order result of Section 3.8 gives $\frac{\rho^2}{2}\lambda_{\max}(H_\theta) = \frac{0.01}{2}(50)$.
+>
+> $$\boxed{\text{Max sharpness} = 0.25}$$
+>
+> *Reasonableness check:* $\bar\epsilon$ has norm exactly $\rho$, as the Cauchy–Schwarz equality condition requires — the worst-case perturbation always sits on the boundary of the ball, never inside it. And the sharpness scales as $\rho^2$, so halving the neighbourhood radius to $0.05$ would cut the sharpness by a factor of four to $0.0625$; comparisons of sharpness across models are only meaningful at a fixed $\rho$.
 
-Halving each term in turn gives reductions of $0.07$ (source risk), $0.11$ (discrepancy $\gamma$), and $0.045$ (radius $\rho$), so the discrepancy term dominates.
+> [!example]- Problem 4 — β-VAE KL term and the capacity objective
+> A 3-dimensional latent has encoder outputs $\mu_\phi = (0,\, 0.5,\, 1.0)$ and $\sigma_\phi = (1.0,\, 1.0,\, 0.5)$. Using the standard closed form $D_{\text{KL}} = \frac{1}{2}\sum_j\big[\mu_j^2 + \sigma_j^2 - 1 - \log\sigma_j^2\big]$, compute the KL. Then, with $\beta = 4$ and target capacity $C = 0.5$, compute the penalty contributed by the capacity-control objective of Section 4.16, and compare it against plain β-VAE.
+>
+> *Solution.* Per dimension: for $j=1$, $0 + 1 - 1 - \log 1 = 0$; for $j=2$, $0.25 + 1 - 1 - 0 = 0.25$; for $j=3$, $1 + 0.25 - 1 - \log(0.25) = 0.25 + 1.3863 = 1.6363$. Summing and halving, $D_{\text{KL}} = \frac{1}{2}(0 + 0.25 + 1.6363)$.
+>
+> $$\boxed{D_{\text{KL}} \approx 0.943 \text{ nats}}$$
+>
+> Under plain β-VAE the penalty is $\beta\,D_{\text{KL}} = 4(0.943) = 3.772$. Under capacity control it is $\beta\,|D_{\text{KL}} - C| = 4\,|0.943 - 0.5| = 4(0.443)$.
+>
+> $$\boxed{\text{β-VAE penalty} = 3.772; \qquad \text{capacity-control penalty} = 1.772}$$
+>
+> *Reasonableness check:* dimension 1 contributes exactly zero — it has collapsed to the prior, carrying no information about $x$, which is the per-dimension collapse described in Section 4.15. The capacity-control penalty is smaller here, but the more important difference is directional: if the KL fell *below* $C$, plain β-VAE would keep rewarding the drop while capacity control would start penalizing it, which is precisely the mechanism that prevents further collapse.
 
-*Reasonableness check:* that $\gamma$ is the largest single contributor is the expected situation in DG and is precisely the awkward one — $\gamma$ measures the distance from the target to the convex hull, and since the target is unavailable at training time it cannot be minimized directly. This is why lever 3 of Section 1.3 is phrased indirectly, as *learning a representation whose source hull covers future targets*, rather than as minimizing $\gamma$ outright.
+> [!example]- Problem 5 — Mutual Information Gap
+> A generative factor $v_1$ has entropy $H(v_1) = 2.0$ bits. Its mutual information with the best-matching latent dimension is $I(v_1, z_*) = 1.6$ bits and with the runner-up $I(v_1, z_0) = 0.3$ bits. A second factor has $H(v_2) = 1.5$, $I(v_2, z_*) = 1.2$, $I(v_2, z_0) = 0.9$. Compute $\text{MIG}_1$, $\text{MIG}_2$, and the overall MIG, and say which factor is better disentangled.
+>
+> *Solution.* Applying the definition of Section 4.14, $\text{MIG}_1 = (1.6 - 0.3)/2.0 = 1.3/2.0 = 0.65$ and $\text{MIG}_2 = (1.2 - 0.9)/1.5 = 0.3/1.5 = 0.20$. Averaging over $K = 2$ factors, $\text{MIG} = \frac{1}{2}(0.65 + 0.20)$.
+>
+> $$\boxed{\text{MIG}_1 = 0.65, \qquad \text{MIG}_2 = 0.20, \qquad \text{MIG} = 0.425}$$
+>
+> Factor $v_1$ is better disentangled.
+>
+> *Reasonableness check:* both values lie in $[0,1]$ as the entropy normalization guarantees. Note that $v_2$ is actually *well encoded* — $1.2$ of its $1.5$ bits are captured — but it is smeared across two dimensions almost equally, so its MIG is low. This is exactly the behaviour the gap formulation is designed to expose: high mutual information alone would have rated $v_2$ favourably, and only the margin over the runner-up reveals the entanglement.
 
-**Problem 2 — The positive-pull / negative-push identity.** A contrastive batch has one positive and four negatives, with similarity scores $s_{\text{pos}} = 3.0$ and $s_1 = 1.0$, $s_2 = 0.5$, $s_3 = 0.0$, $s_4 = -1.0$. Compute $P_{\text{pos}}$, the gradient magnitude at the positive, and the summed gradient over the negatives. Verify the identity of Section 2.6.
-
-*Solution.* The exponentials are $e^{3.0} \approx 20.086$, $e^{1.0}\approx 2.718$, $e^{0.5}\approx 1.649$, $e^{0.0} = 1$, and $e^{-1.0}\approx 0.368$, summing to $25.821$. Therefore $P_{\text{pos}} = 20.086/25.821 \approx 0.7779$, and the individual negative probabilities are $P_1 \approx 0.1053$, $P_2 \approx 0.0639$, $P_3 \approx 0.0387$, $P_4 \approx 0.0143$. Using $\partial L/\partial s_{\text{pos}} = P_{\text{pos}} - 1$, the magnitude at the positive is $|0.7779 - 1| = 0.2221$; summing the negatives' gradients $\sum_i P_i \approx 0.1053 + 0.0639 + 0.0387 + 0.0143 = 0.2222$.
-
-$$\boxed{P_{\text{pos}} \approx 0.778, \qquad \left|\partial L/\partial s_{\text{pos}}\right| \approx 0.222 = \sum_{i \neq \text{pos}} \partial L/\partial s_i}$$
-
-*Reasonableness check:* the two quantities agree to rounding, confirming the boxed identity. Now consider a hard positive with $s_{\text{pos}} = -1.0$ instead: $P_{\text{pos}}$ would fall to roughly $0.06$, making the pull magnitude about $0.94$ — more than four times larger — and that entire $0.94$ would be redistributed as push onto the four negatives regardless of whether they needed moving. That amplification is exactly the wasted-gradient pathology of Section 2.6.
-
-**Problem 3 — SAM perturbation and sharpness.** At the current parameters the gradient is $g_\theta = (3, 4)^{\top}$ and the neighbourhood radius is $\rho = 0.1$. Compute the linearized worst-case perturbation $\bar\epsilon$. Separately, at a minimum where $\nabla_\theta L = 0$ with $\lambda_{\max}(H_\theta) = 50$, compute the maximum sharpness for the same $\rho$.
-
-*Solution.* Applying the boxed result of Section 3.7, $\bar\epsilon = \rho\, g_\theta/\lVert g_\theta\rVert_2$ with $\lVert g_\theta\rVert_2 = \sqrt{9+16} = 5$, giving $\bar\epsilon = 0.1 \times (3/5,\, 4/5)^{\top}$.
-
-$$\boxed{\bar{\epsilon} = (0.06,\; 0.08)^{\top}, \qquad \lVert\bar\epsilon\rVert_2 = 0.1 = \rho}$$
-
-For the sharpness, the second-order result of Section 3.8 gives $\frac{\rho^2}{2}\lambda_{\max}(H_\theta) = \frac{0.01}{2}(50)$.
-
-$$\boxed{\text{Max sharpness} = 0.25}$$
-
-*Reasonableness check:* $\bar\epsilon$ has norm exactly $\rho$, as the Cauchy–Schwarz equality condition requires — the worst-case perturbation always sits on the boundary of the ball, never inside it. And the sharpness scales as $\rho^2$, so halving the neighbourhood radius to $0.05$ would cut the sharpness by a factor of four to $0.0625$; comparisons of sharpness across models are only meaningful at a fixed $\rho$.
-
-**Problem 4 — β-VAE KL term and the capacity objective.** A 3-dimensional latent has encoder outputs $\mu_\phi = (0,\, 0.5,\, 1.0)$ and $\sigma_\phi = (1.0,\, 1.0,\, 0.5)$. Using the standard closed form $D_{\text{KL}} = \frac{1}{2}\sum_j\big[\mu_j^2 + \sigma_j^2 - 1 - \log\sigma_j^2\big]$, compute the KL. Then, with $\beta = 4$ and target capacity $C = 0.5$, compute the penalty contributed by the capacity-control objective of Section 4.16, and compare it against plain β-VAE.
-
-*Solution.* Per dimension: for $j=1$, $0 + 1 - 1 - \log 1 = 0$; for $j=2$, $0.25 + 1 - 1 - 0 = 0.25$; for $j=3$, $1 + 0.25 - 1 - \log(0.25) = 0.25 + 1.3863 = 1.6363$. Summing and halving, $D_{\text{KL}} = \frac{1}{2}(0 + 0.25 + 1.6363)$.
-
-$$\boxed{D_{\text{KL}} \approx 0.943 \text{ nats}}$$
-
-Under plain β-VAE the penalty is $\beta\,D_{\text{KL}} = 4(0.943) = 3.772$. Under capacity control it is $\beta\,|D_{\text{KL}} - C| = 4\,|0.943 - 0.5| = 4(0.443)$.
-
-$$\boxed{\text{β-VAE penalty} = 3.772; \qquad \text{capacity-control penalty} = 1.772}$$
-
-*Reasonableness check:* dimension 1 contributes exactly zero — it has collapsed to the prior, carrying no information about $x$, which is the per-dimension collapse described in Section 4.15. The capacity-control penalty is smaller here, but the more important difference is directional: if the KL fell *below* $C$, plain β-VAE would keep rewarding the drop while capacity control would start penalizing it, which is precisely the mechanism that prevents further collapse.
-
-**Problem 5 — Mutual Information Gap.** A generative factor $v_1$ has entropy $H(v_1) = 2.0$ bits. Its mutual information with the best-matching latent dimension is $I(v_1, z_*) = 1.6$ bits and with the runner-up $I(v_1, z_0) = 0.3$ bits. A second factor has $H(v_2) = 1.5$, $I(v_2, z_*) = 1.2$, $I(v_2, z_0) = 0.9$. Compute $\text{MIG}_1$, $\text{MIG}_2$, and the overall MIG, and say which factor is better disentangled.
-
-*Solution.* Applying the definition of Section 4.14, $\text{MIG}_1 = (1.6 - 0.3)/2.0 = 1.3/2.0 = 0.65$ and $\text{MIG}_2 = (1.2 - 0.9)/1.5 = 0.3/1.5 = 0.20$. Averaging over $K = 2$ factors, $\text{MIG} = \frac{1}{2}(0.65 + 0.20)$.
-
-$$\boxed{\text{MIG}_1 = 0.65, \qquad \text{MIG}_2 = 0.20, \qquad \text{MIG} = 0.425}$$
-
-Factor $v_1$ is better disentangled.
-
-*Reasonableness check:* both values lie in $[0,1]$ as the entropy normalization guarantees. Note that $v_2$ is actually *well encoded* — $1.2$ of its $1.5$ bits are captured — but it is smeared across two dimensions almost equally, so its MIG is low. This is exactly the behaviour the gap formulation is designed to expose: high mutual information alone would have rated $v_2$ favourably, and only the margin over the runner-up reveals the entanglement.
-
-**Problem 6 — SSL pretext task scaling.** A jigsaw pretext task uses a $3\times3$ grid. Compute the full permutation count, and the reduction factor achieved by restricting to $L = 100$ predefined permutations. Then, for instance classification on $|\mathcal{D}_U| = 10^5$ images, compare the output-layer parameter count of the cross-entropy formulation against the contrastive formulation, assuming a $2048$-dimensional representation.
-
-*Solution.* From Section 5.9, the permutation count is $9! = 362{,}880$, and restricting to $L = 100$ classes gives a reduction factor of $362{,}880/100$.
-
-$$\boxed{9! = 362{,}880 \;\longrightarrow\; 100, \qquad \text{reduction} \approx 3{,}629\times}$$
-
-For instance classification (Section 5.15), the cross-entropy head is a linear map from the representation to one logit per instance, requiring $2048 \times 10^5 = 2.048 \times 10^8$ weights. The contrastive formulation replaces the classification head with a similarity computation between pairs of $2048$-dimensional embeddings, which needs no per-instance parameters at all — only an optional projection head of roughly $2048 \times 128 \approx 2.6\times10^5$ weights.
-
-$$\boxed{\text{CE head: } \approx 2.05\times10^{8} \text{ weights}; \qquad \text{contrastive: } \approx 2.6\times10^{5} \text{ weights (}\sim790\times \text{ fewer)}}$$
-
-*Reasonableness check:* both numbers make the same point from different directions — the naive formulation scales with the *size of the dataset*, which is untenable, while the reformulated one scales only with the *embedding dimension*, which is fixed. This is the concrete content of the "not scalable due to the softmax limitation" objection in Section 5.15, and it is the same kind of combinatorial reduction the jigsaw permutation restriction achieves.
+> [!example]- Problem 6 — SSL pretext task scaling
+> A jigsaw pretext task uses a $3\times3$ grid. Compute the full permutation count, and the reduction factor achieved by restricting to $L = 100$ predefined permutations. Then, for instance classification on $|\mathcal{D}_U| = 10^5$ images, compare the output-layer parameter count of the cross-entropy formulation against the contrastive formulation, assuming a $2048$-dimensional representation.
+>
+> *Solution.* From Section 5.9, the permutation count is $9! = 362{,}880$, and restricting to $L = 100$ classes gives a reduction factor of $362{,}880/100$.
+>
+> $$\boxed{9! = 362{,}880 \;\longrightarrow\; 100, \qquad \text{reduction} \approx 3{,}629\times}$$
+>
+> For instance classification (Section 5.15), the cross-entropy head is a linear map from the representation to one logit per instance, requiring $2048 \times 10^5 = 2.048 \times 10^8$ weights. The contrastive formulation replaces the classification head with a similarity computation between pairs of $2048$-dimensional embeddings, which needs no per-instance parameters at all — only an optional projection head of roughly $2048 \times 128 \approx 2.6\times10^5$ weights.
+>
+> $$\boxed{\text{CE head: } \approx 2.05\times10^{8} \text{ weights}; \qquad \text{contrastive: } \approx 2.6\times10^{5} \text{ weights (}\sim790\times \text{ fewer)}}$$
+>
+> *Reasonableness check:* both numbers make the same point from different directions — the naive formulation scales with the *size of the dataset*, which is untenable, while the reformulated one scales only with the *embedding dimension*, which is fixed. This is the concrete content of the "not scalable due to the softmax limitation" objection in Section 5.15, and it is the same kind of combinatorial reduction the jigsaw permutation restriction achieves.
 
 ---
 

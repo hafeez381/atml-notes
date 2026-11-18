@@ -523,99 +523,108 @@ The failure diagnosis of Section 6 connects OSR to the rest of the course. Unbou
 
 These problems exercise the four post-hoc scores (Problems 1–3), the metrics of Section 7 (Problems 4–5), the two training methods (Problems 6–7), and the two design principles (Problems 8–9).
 
-**Problem 1 — MSP versus MLS on an ambiguous input.** For the notes' logits $z_A = [6, 5.9, 0]^\top$ and $z_B = [6, 0, 0]^\top$, compute $u_{\text{MSP}}$ and $u_{\text{MLS}}$ for both, and state which score separates them.
+> [!example]- Problem 1 — MSP versus MLS on an ambiguous input
+> For the notes' logits $z_A = [6, 5.9, 0]^\top$ and $z_B = [6, 0, 0]^\top$, compute $u_{\text{MSP}}$ and $u_{\text{MLS}}$ for both, and state which score separates them.
+>
+> *Solution.* MLS reads only the top logit, so $u_{\text{MLS}}(A) = u_{\text{MLS}}(B) = -6$. For MSP, the softmax denominators are $e^6 + e^{5.9} + e^0 \approx 403.43 + 365.04 + 1 = 769.47$ for $A$ and $e^6 + 2 \approx 405.43$ for $B$, so $\max_k p_k(A) = 403.43/769.47 \approx 0.524$ and $\max_k p_k(B) = 403.43/405.43 \approx 0.995$.
+>
+> $$
+> \boxed{u_{\text{MSP}}(A) \approx 0.476, \quad u_{\text{MSP}}(B) \approx 0.005, \quad u_{\text{MLS}}(A) = u_{\text{MLS}}(B) = -6}
+> $$
+>
+> MSP separates them; MLS does not. *Reasonableness check:* $A$ splits its mass almost evenly between two classes, so a max probability near $0.5$ is expected, and MSP correctly flags it as far less certain than $B$.
 
-*Solution.* MLS reads only the top logit, so $u_{\text{MLS}}(A) = u_{\text{MLS}}(B) = -6$. For MSP, the softmax denominators are $e^6 + e^{5.9} + e^0 \approx 403.43 + 365.04 + 1 = 769.47$ for $A$ and $e^6 + 2 \approx 405.43$ for $B$, so $\max_k p_k(A) = 403.43/769.47 \approx 0.524$ and $\max_k p_k(B) = 403.43/405.43 \approx 0.995$.
+> [!example]- Problem 2 — Energy and MSP disagree
+> For the notes' energy example, $z_A = [6, 0, 0]^\top$ and $z_B = [5.5, 5.5, 5.5]^\top$, compute $u_{\text{energy}}$, $u_{\text{MLS}}$ and $u_{\text{MSP}}$, and verify the relation of Section 5.6.
+>
+> *Solution.* For $A$, $\log(e^6 + 2) \approx \log 405.43 \approx 6.005$, so $u_{\text{energy}}(A) \approx -6.005$ and $u_{\text{MLS}}(A) = -6$. For $B$, $\log(3e^{5.5}) = 5.5 + \log 3 \approx 6.599$, so $u_{\text{energy}}(B) \approx -6.599$ and $u_{\text{MLS}}(B) = -5.5$. MSP gives $u_{\text{MSP}}(A) = 1 - e^6/405.43 \approx 0.005$ and $u_{\text{MSP}}(B) = 1 - 1/3 \approx 0.667$. Checking Section 5.6's relation for $B$: $1 - e^{-6.599 - (-5.5)} = 1 - e^{-1.099} = 1 - 1/3$, as required.
+>
+> $$
+> \boxed{u_{\text{energy}}(A) \approx -6.005,\; u_{\text{energy}}(B) \approx -6.599;\quad u_{\text{MSP}}(A) \approx 0.005,\; u_{\text{MSP}}(B) \approx 0.667}
+> $$
+>
+> Energy calls $B$ more known (lower score); MSP calls $B$ far less known. *Reasonableness check:* the energy–MLS gap for $B$ is exactly $\log 3$, the largest possible for $K = 3$, which is precisely the configuration where MSP is least confident.
 
-$$
-\boxed{u_{\text{MSP}}(A) \approx 0.476, \quad u_{\text{MSP}}(B) \approx 0.005, \quad u_{\text{MLS}}(A) = u_{\text{MLS}}(B) = -6}
-$$
+> [!example]- Problem 3 — Mahalanobis score
+> Two known classes have training-feature means $\mu_{\text{dog}} = (0, 0)^\top$ and $\mu_{\text{cat}} = (4, 0)^\top$ with shared covariance $\Sigma = \operatorname{diag}(1, 4)$. With $\tau = 4$, compute $u_{\text{MAH}}$ and the decision for $h_1 = (1, 3)^\top$ and $h_2 = (0, 5)^\top$.
+>
+> *Solution.* With $\Sigma^{-1} = \operatorname{diag}(1, 1/4)$, the squared distance is $\Delta_1^2 + \Delta_2^2/4$. For $h_1$: to dog, $1 + 9/4 = 3.25$; to cat, $9 + 9/4 = 11.25$; the minimum is $3.25 \le 4$, so $h_1$ is accepted and classified as dog. For $h_2$: to dog, $0 + 25/4 = 6.25$; to cat, $16 + 6.25 = 22.25$; the minimum is $6.25 > 4$, so $h_2$ is rejected.
+>
+> $$
+> \boxed{u_{\text{MAH}}(h_1) = 3.25 \;\to\; \text{accept (dog)}, \qquad u_{\text{MAH}}(h_2) = 6.25 \;\to\; \text{reject}}
+> $$
+>
+> *Reasonableness check:* $h_1$ is $\sqrt{10} \approx 3.2$ Euclidean units from the dog mean, but most of that displacement is along the second axis, where the dog class has variance $4$; Mahalanobis discounts it accordingly, which is why $h_1$ is accepted even though its squared Euclidean distance, $10$, exceeds $\tau = 4$.
 
-MSP separates them; MLS does not. *Reasonableness check:* $A$ splits its mass almost evenly between two classes, so a max probability near $0.5$ is expected, and MSP correctly flags it as far less certain than $B$.
+> [!example]- Problem 4 — AUROC, TPR, FPR and FRR
+> Knowns score $u = (0.2, 0.4, 0.5, 0.7)$ and unknowns score $u = (0.3, 0.6, 0.8)$. Compute AUROC. Then compute TPR, FPR and FRR at $\tau = 0.5$ and at $\tau = 0.7$.
+>
+> *Solution.* There are $4 \times 3 = 12$ pairs. Counting unknowns above each known: $0.2 \to 3$, $0.4 \to 2$, $0.5 \to 2$, $0.7 \to 1$, a total of $8$, so AUROC $= 8/12$. At $\tau = 0.5$, knowns $0.2, 0.4, 0.5$ are accepted (TPR $= 3/4$, FRR $= 1/4$) and one unknown, $0.3$, is accepted (FPR $= 1/3$). At $\tau = 0.7$, all knowns are accepted (TPR $= 1$, FRR $= 0$) and unknowns $0.3, 0.6$ are accepted (FPR $= 2/3$).
+>
+> $$
+> \boxed{\text{AUROC} \approx 0.667;\quad \tau{=}0.5: (\text{TPR},\text{FPR},\text{FRR}) = (0.75, 0.33, 0.25);\quad \tau{=}0.7: (1, 0.67, 0)}
+> $$
+>
+> *Reasonableness check:* raising $\tau$ accepts more of everything, so TPR and FPR both rise and FRR falls, which is the tradeoff FPR@95TPR fixes one end of. With four knowns, "95% TPR" means accepting all four, so FPR@95TPR here is $2/3$.
 
-**Problem 2 — Energy and MSP disagree.** For the notes' energy example, $z_A = [6, 0, 0]^\top$ and $z_B = [5.5, 5.5, 5.5]^\top$, compute $u_{\text{energy}}$, $u_{\text{MLS}}$ and $u_{\text{MSP}}$, and verify the relation of Section 5.6.
+> [!example]- Problem 5 — OSCR for the lecture's example
+> Using the running example of Section 7.2, compute the OSCR: the area under the curve of correct classification rate (CCR, knowns accepted *and* correctly classified, over all knowns) against FPR.
+>
+> *Solution.* Sweep $\tau$ upward through the sorted scores. Before the first unknown ($0.3$) is accepted, knowns $0.1$ ✓ and $0.2$ ✓ and $0.25$ ✗ are accepted, so CCR $= 2/5 = 0.4$ at FPR $= 0$. Accepting $U_1$ (FPR $0.2$), then $K_4 = 0.35$ ✓ raises CCR to $0.6$; accepting $U_2$ (FPR $0.4$), then $K_5 = 0.5$ ✓ raises CCR to $0.8$; the remaining unknowns raise FPR to $0.6, 0.8, 1.0$ with CCR fixed at $0.8$. Integrating CCR over each FPR interval of width $0.2$, using the CCR reached before that interval's unknown is admitted,
+>
+> $$
+> \text{OSCR} = 0.2\,(0.4 + 0.6 + 0.8 + 0.8 + 0.8) = 0.2 \times 3.4.
+> $$
+>
+> $$
+> \boxed{\text{OSCR} = 0.68}
+> $$
+>
+> *Reasonableness check:* OSCR is capped by CSA $= 0.8$ (CCR can never exceed the fraction of knowns classified correctly) and is further reduced by imperfect separation; $0.68$ sits below both CSA and AUROC $= 0.88$, as expected for a metric that penalizes both failures.
 
-*Solution.* For $A$, $\log(e^6 + 2) \approx \log 405.43 \approx 6.005$, so $u_{\text{energy}}(A) \approx -6.005$ and $u_{\text{MLS}}(A) = -6$. For $B$, $\log(3e^{5.5}) = 5.5 + \log 3 \approx 6.599$, so $u_{\text{energy}}(B) \approx -6.599$ and $u_{\text{MLS}}(B) = -5.5$. MSP gives $u_{\text{MSP}}(A) = 1 - e^6/405.43 \approx 0.005$ and $u_{\text{MSP}}(B) = 1 - 1/3 \approx 0.667$. Checking Section 5.6's relation for $B$: $1 - e^{-6.599 - (-5.5)} = 1 - e^{-1.099} = 1 - 1/3$, as required.
+> [!example]- Problem 6 — PROSER: mixup and the two loss terms
+> Hidden features are $h_{\text{cat}} = (2, 0, 1)^\top$ and $h_{\text{truck}} = (0, 4, 1)^\top$. (a) Compute $h_u$ for $\lambda = 0.45$ and give the mean and variance of $\lambda \sim \text{Beta}(2,2)$. (b) A known sample of class 1 (of $K = 3$) has logits $z = [3, 1, 0]$ and dummy logit $z_u = 2$. With $\beta = 1$, compute both terms of $L_{\text{cls}}$ in nats.
+>
+> *Solution.* (a) $h_u = 0.45(2,0,1) + 0.55(0,4,1) = (0.9, 2.2, 1.0)$. For $\text{Beta}(a,b)$ the mean is $a/(a+b) = 0.5$ and the variance is $ab/\big((a+b)^2(a+b+1)\big) = 4/(16 \cdot 5) = 0.05$. (b) The first term is cross-entropy over $[3, 1, 0, 2]$ with target class 1: $-3 + \log(e^3 + e^1 + e^0 + e^2) = -3 + \log 31.19 \approx 0.440$. The second masks the true logit, leaving $[1, 0, 2]$ with target the dummy: $-2 + \log(e^1 + e^0 + e^2) = -2 + \log 11.11 \approx 0.408$.
+>
+> $$
+> \boxed{h_u = (0.9, 2.2, 1.0);\quad \mathbb{E}[\lambda] = 0.5,\ \operatorname{Var}[\lambda] = 0.05;\quad L_{\text{cls}} \approx 0.440 + 0.408 = 0.848 \text{ nats}}
+> $$
+>
+> *Reasonableness check:* the dummy logit $2$ is already the runner-up once the true class ($3$) is masked, so the second term is small but not zero; it would shrink further if $z_u$ rose above the other known logits while staying below $3$ — the "just below the true class" position described in Section 5.8.
 
-$$
-\boxed{u_{\text{energy}}(A) \approx -6.005,\; u_{\text{energy}}(B) \approx -6.599;\quad u_{\text{MSP}}(A) \approx 0.005,\; u_{\text{MSP}}(B) \approx 0.667}
-$$
+> [!example]- Problem 7 — RPL loss
+> A class-$j$ feature is $h_j = (3, 4)^\top$ and its reciprocal point is $P_j = (0, 0)^\top$, with $R = 20$, $\lambda = 0.1$ and a cross-entropy term of $0.2$. Compute $L_{\text{RPL}}$, and say in which direction the bounding term pushes $h_j$.
+>
+> *Solution.* $d(h_j, P_j) = \lVert h_j - P_j \rVert_2^2 = 9 + 16 = 25$. The bounding term is $\lambda(25 - 20)^2 = 0.1 \times 25 = 2.5$, so $L_{\text{RPL}} = 0.2 + 2.5$.
+>
+> $$
+> \boxed{L_{\text{RPL}} = 2.7}
+> $$
+>
+> Since $d > R$, reducing the loss requires reducing $d$, so the bounding term pulls $h_j$ back toward the shell of squared radius $R$ around $P_j$, opposing the cross-entropy term's push outward. *Reasonableness check:* at $d = R = 20$ the bounding term vanishes, which is the equilibrium "stop pushing" point in the notes.
 
-Energy calls $B$ more known (lower score); MSP calls $B$ far less known. *Reasonableness check:* the energy–MLS gap for $B$ is exactly $\log 3$, the largest possible for $K = 3$, which is precisely the configuration where MSP is least confident.
+> [!example]- Problem 8 — Open-space risk in one dimension
+> Training features lie in $[-1, 1] \cup [3, 5]$ on the feature space $S_O = [-10, 10]$. Take $O$ to be $S_O$ minus a margin of $r = 1$ around the data, so the supported region is $[-2, 6]$. A classifier accepts ($f_\theta = 1$) on $[-4, 8]$ and rejects elsewhere. Compute $R_O$, then recompute for a tighter classifier accepting $[-2.5, 6.5]$.
+>
+> *Solution.* For the first classifier, the accepted mass in $O$ is the part of $[-4, 8]$ outside $[-2, 6]$, namely $[-4,-2] \cup [6,8]$ of total length $4$, and the total accepted mass is $12$, so $R_O = 4/12$. For the tighter classifier, the open part is $[-2.5, -2] \cup [6, 6.5]$ of length $1$ and the total is $9$, so $R_O = 1/9$.
+>
+> $$
+> \boxed{R_O = 0.333 \;\to\; 0.111}
+> $$
+>
+> *Reasonableness check:* both classifiers accept all training data, so their supervised risk is the same; tightening the acceptance region lowers only the open-space term, exactly the tradeoff the objective $R_O + \lambda R_{\text{sup}}$ is designed to exploit.
 
-**Problem 3 — Mahalanobis score.** Two known classes have training-feature means $\mu_{\text{dog}} = (0, 0)^\top$ and $\mu_{\text{cat}} = (4, 0)^\top$ with shared covariance $\Sigma = \operatorname{diag}(1, 4)$. With $\tau = 4$, compute $u_{\text{MAH}}$ and the decision for $h_1 = (1, 3)^\top$ and $h_2 = (0, 5)^\top$.
-
-*Solution.* With $\Sigma^{-1} = \operatorname{diag}(1, 1/4)$, the squared distance is $\Delta_1^2 + \Delta_2^2/4$. For $h_1$: to dog, $1 + 9/4 = 3.25$; to cat, $9 + 9/4 = 11.25$; the minimum is $3.25 \le 4$, so $h_1$ is accepted and classified as dog. For $h_2$: to dog, $0 + 25/4 = 6.25$; to cat, $16 + 6.25 = 22.25$; the minimum is $6.25 > 4$, so $h_2$ is rejected.
-
-$$
-\boxed{u_{\text{MAH}}(h_1) = 3.25 \;\to\; \text{accept (dog)}, \qquad u_{\text{MAH}}(h_2) = 6.25 \;\to\; \text{reject}}
-$$
-
-*Reasonableness check:* $h_1$ is $\sqrt{10} \approx 3.2$ Euclidean units from the dog mean, but most of that displacement is along the second axis, where the dog class has variance $4$; Mahalanobis discounts it accordingly, which is why $h_1$ is accepted even though its squared Euclidean distance, $10$, exceeds $\tau = 4$.
-
-**Problem 4 — AUROC, TPR, FPR and FRR.** Knowns score $u = (0.2, 0.4, 0.5, 0.7)$ and unknowns score $u = (0.3, 0.6, 0.8)$. Compute AUROC. Then compute TPR, FPR and FRR at $\tau = 0.5$ and at $\tau = 0.7$.
-
-*Solution.* There are $4 \times 3 = 12$ pairs. Counting unknowns above each known: $0.2 \to 3$, $0.4 \to 2$, $0.5 \to 2$, $0.7 \to 1$, a total of $8$, so AUROC $= 8/12$. At $\tau = 0.5$, knowns $0.2, 0.4, 0.5$ are accepted (TPR $= 3/4$, FRR $= 1/4$) and one unknown, $0.3$, is accepted (FPR $= 1/3$). At $\tau = 0.7$, all knowns are accepted (TPR $= 1$, FRR $= 0$) and unknowns $0.3, 0.6$ are accepted (FPR $= 2/3$).
-
-$$
-\boxed{\text{AUROC} \approx 0.667;\quad \tau{=}0.5: (\text{TPR},\text{FPR},\text{FRR}) = (0.75, 0.33, 0.25);\quad \tau{=}0.7: (1, 0.67, 0)}
-$$
-
-*Reasonableness check:* raising $\tau$ accepts more of everything, so TPR and FPR both rise and FRR falls, which is the tradeoff FPR@95TPR fixes one end of. With four knowns, "95% TPR" means accepting all four, so FPR@95TPR here is $2/3$.
-
-**Problem 5 — OSCR for the lecture's example.** Using the running example of Section 7.2, compute the OSCR: the area under the curve of correct classification rate (CCR, knowns accepted *and* correctly classified, over all knowns) against FPR.
-
-*Solution.* Sweep $\tau$ upward through the sorted scores. Before the first unknown ($0.3$) is accepted, knowns $0.1$ ✓ and $0.2$ ✓ and $0.25$ ✗ are accepted, so CCR $= 2/5 = 0.4$ at FPR $= 0$. Accepting $U_1$ (FPR $0.2$), then $K_4 = 0.35$ ✓ raises CCR to $0.6$; accepting $U_2$ (FPR $0.4$), then $K_5 = 0.5$ ✓ raises CCR to $0.8$; the remaining unknowns raise FPR to $0.6, 0.8, 1.0$ with CCR fixed at $0.8$. Integrating CCR over each FPR interval of width $0.2$, using the CCR reached before that interval's unknown is admitted,
-
-$$
-\text{OSCR} = 0.2\,(0.4 + 0.6 + 0.8 + 0.8 + 0.8) = 0.2 \times 3.4.
-$$
-
-$$
-\boxed{\text{OSCR} = 0.68}
-$$
-
-*Reasonableness check:* OSCR is capped by CSA $= 0.8$ (CCR can never exceed the fraction of knowns classified correctly) and is further reduced by imperfect separation; $0.68$ sits below both CSA and AUROC $= 0.88$, as expected for a metric that penalizes both failures.
-
-**Problem 6 — PROSER: mixup and the two loss terms.** Hidden features are $h_{\text{cat}} = (2, 0, 1)^\top$ and $h_{\text{truck}} = (0, 4, 1)^\top$. (a) Compute $h_u$ for $\lambda = 0.45$ and give the mean and variance of $\lambda \sim \text{Beta}(2,2)$. (b) A known sample of class 1 (of $K = 3$) has logits $z = [3, 1, 0]$ and dummy logit $z_u = 2$. With $\beta = 1$, compute both terms of $L_{\text{cls}}$ in nats.
-
-*Solution.* (a) $h_u = 0.45(2,0,1) + 0.55(0,4,1) = (0.9, 2.2, 1.0)$. For $\text{Beta}(a,b)$ the mean is $a/(a+b) = 0.5$ and the variance is $ab/\big((a+b)^2(a+b+1)\big) = 4/(16 \cdot 5) = 0.05$. (b) The first term is cross-entropy over $[3, 1, 0, 2]$ with target class 1: $-3 + \log(e^3 + e^1 + e^0 + e^2) = -3 + \log 31.19 \approx 0.440$. The second masks the true logit, leaving $[1, 0, 2]$ with target the dummy: $-2 + \log(e^1 + e^0 + e^2) = -2 + \log 11.11 \approx 0.408$.
-
-$$
-\boxed{h_u = (0.9, 2.2, 1.0);\quad \mathbb{E}[\lambda] = 0.5,\ \operatorname{Var}[\lambda] = 0.05;\quad L_{\text{cls}} \approx 0.440 + 0.408 = 0.848 \text{ nats}}
-$$
-
-*Reasonableness check:* the dummy logit $2$ is already the runner-up once the true class ($3$) is masked, so the second term is small but not zero; it would shrink further if $z_u$ rose above the other known logits while staying below $3$ — the "just below the true class" position described in Section 5.8.
-
-**Problem 7 — RPL loss.** A class-$j$ feature is $h_j = (3, 4)^\top$ and its reciprocal point is $P_j = (0, 0)^\top$, with $R = 20$, $\lambda = 0.1$ and a cross-entropy term of $0.2$. Compute $L_{\text{RPL}}$, and say in which direction the bounding term pushes $h_j$.
-
-*Solution.* $d(h_j, P_j) = \lVert h_j - P_j \rVert_2^2 = 9 + 16 = 25$. The bounding term is $\lambda(25 - 20)^2 = 0.1 \times 25 = 2.5$, so $L_{\text{RPL}} = 0.2 + 2.5$.
-
-$$
-\boxed{L_{\text{RPL}} = 2.7}
-$$
-
-Since $d > R$, reducing the loss requires reducing $d$, so the bounding term pulls $h_j$ back toward the shell of squared radius $R$ around $P_j$, opposing the cross-entropy term's push outward. *Reasonableness check:* at $d = R = 20$ the bounding term vanishes, which is the equilibrium "stop pushing" point in the notes.
-
-**Problem 8 — Open-space risk in one dimension.** Training features lie in $[-1, 1] \cup [3, 5]$ on the feature space $S_O = [-10, 10]$. Take $O$ to be $S_O$ minus a margin of $r = 1$ around the data, so the supported region is $[-2, 6]$. A classifier accepts ($f_\theta = 1$) on $[-4, 8]$ and rejects elsewhere. Compute $R_O$, then recompute for a tighter classifier accepting $[-2.5, 6.5]$.
-
-*Solution.* For the first classifier, the accepted mass in $O$ is the part of $[-4, 8]$ outside $[-2, 6]$, namely $[-4,-2] \cup [6,8]$ of total length $4$, and the total accepted mass is $12$, so $R_O = 4/12$. For the tighter classifier, the open part is $[-2.5, -2] \cup [6, 6.5]$ of length $1$ and the total is $9$, so $R_O = 1/9$.
-
-$$
-\boxed{R_O = 0.333 \;\to\; 0.111}
-$$
-
-*Reasonableness check:* both classifiers accept all training data, so their supervised risk is the same; tightening the acceptance region lowers only the open-space term, exactly the tradeoff the objective $R_O + \lambda R_{\text{sup}}$ is designed to exploit.
-
-**Problem 9 — The optimal LRT detector.** Suppose, hypothetically, $P_K = \mathcal{N}(0, 1)$ and $P_U = \mathcal{N}(3, 1)$ in one dimension. Derive $u^*(x)$, find the rejection region for $\tau = 0$, and classify $x = 1$ and $x = 2$.
-
-*Solution.* Both densities share the normalizing constant, so the log-ratio is the difference of exponents: $u^*(x) = -\tfrac{1}{2}(x-3)^2 + \tfrac{1}{2}x^2 = \tfrac{1}{2}\big(x^2 - (x-3)^2\big) = 3x - 4.5$. With $\tau = 0$, reject when $3x - 4.5 > 0$, i.e. $x > 1.5$. Then $u^*(1) = -1.5$ (accept) and $u^*(2) = 1.5$ (reject).
-
-$$
-\boxed{u^*(x) = 3x - 4.5;\quad \text{reject iff } x > 1.5;\quad x{=}1 \to \text{accept},\ x{=}2 \to \text{reject}}
-$$
-
-*Reasonableness check:* with equal variances the log-likelihood ratio is linear, and the $\tau = 0$ boundary sits at the midpoint $1.5$ of the two means, as symmetry demands. The catch, per Section 4.3, is that in reality $P_U$ is never known, so this computation cannot be done.
+> [!example]- Problem 9 — The optimal LRT detector
+> Suppose, hypothetically, $P_K = \mathcal{N}(0, 1)$ and $P_U = \mathcal{N}(3, 1)$ in one dimension. Derive $u^*(x)$, find the rejection region for $\tau = 0$, and classify $x = 1$ and $x = 2$.
+>
+> *Solution.* Both densities share the normalizing constant, so the log-ratio is the difference of exponents: $u^*(x) = -\tfrac{1}{2}(x-3)^2 + \tfrac{1}{2}x^2 = \tfrac{1}{2}\big(x^2 - (x-3)^2\big) = 3x - 4.5$. With $\tau = 0$, reject when $3x - 4.5 > 0$, i.e. $x > 1.5$. Then $u^*(1) = -1.5$ (accept) and $u^*(2) = 1.5$ (reject).
+>
+> $$
+> \boxed{u^*(x) = 3x - 4.5;\quad \text{reject iff } x > 1.5;\quad x{=}1 \to \text{accept},\ x{=}2 \to \text{reject}}
+> $$
+>
+> *Reasonableness check:* with equal variances the log-likelihood ratio is linear, and the $\tau = 0$ boundary sits at the midpoint $1.5$ of the two means, as symmetry demands. The catch, per Section 4.3, is that in reality $P_U$ is never known, so this computation cannot be done.
 
 ---
 

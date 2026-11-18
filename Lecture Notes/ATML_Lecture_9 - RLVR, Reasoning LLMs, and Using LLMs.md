@@ -346,72 +346,79 @@ $$\text{Prompt } x \to \theta_{LLM} \to \text{Response } y$$
 
 ## Numerical Problems
 
-**Problem 1: verifier reward with shaping.** A math verifier gives $\mathbb 1[\text{correct}]$ plus $0.1$ for the correct answer format. The total is clipped to $[0, 1]$, and $0.05$ is deducted for each step beyond 10. Three completions are:
-- $y_1$: correct, formatted, 8 steps;
-- $y_2$: wrong, formatted, 6 steps;
-- $y_3$: correct, unformatted, 14 steps.
+> [!example]- Problem 1: verifier reward with shaping
+> A math verifier gives $\mathbb 1[\text{correct}]$ plus $0.1$ for the correct answer format. The total is clipped to $[0, 1]$, and $0.05$ is deducted for each step beyond 10. Three completions are:
+> - $y_1$: correct, formatted, 8 steps;
+> - $y_2$: wrong, formatted, 6 steps;
+> - $y_3$: correct, unformatted, 14 steps.
+>
+> Find the rewards.
+> - $y_1$: $1 + 0.1 = 1.1$, clipped to $1$.
+> - $y_2$: $0 + 0.1 = 0.1$.
+> - $y_3$: $1 + 0 - 0.05\times4 = 0.8$.
+>
+> $$\boxed{r = [1.0,\ 0.1,\ 0.8]}$$
+>
+> Shaping gives the wrong answer some signal and penalizes rambling, at the risk of being gamed (e.g. perfect format, wrong answer).
 
-Find the rewards.
-- $y_1$: $1 + 0.1 = 1.1$, clipped to $1$.
-- $y_2$: $0 + 0.1 = 0.1$.
-- $y_3$: $1 + 0 - 0.05\times4 = 0.8$.
+> [!example]- Problem 2: GRPO with RLVR and the KL folded in
+> $K = 4$ roll-outs have task rewards $[1, 0, 0, 1]$ and summed log-ratios $\sum_t(\log\pi^{\text{old}} - \log\pi_{\text{ref}}) = [0.5, 0.2, 0.1, 1.5]$, with $\beta = 0.1$. Find $r_{b,k}$ and the advantages.
+>
+> $r_{b,k} = r_{\text{task}} - 0.1\times(\cdot) = [0.95, -0.02, -0.01, 0.85]$, so $\mu_b = 1.77/4 = 0.4425$.
+>
+> $$\boxed{A = [0.5075,\ -0.4625,\ -0.4525,\ 0.4075]}$$
+>
+> The fourth roll-out is right but has drifted far from the reference, so it gets less credit than the first.
 
-$$\boxed{r = [1.0,\ 0.1,\ 0.8]}$$
+> [!example]- Problem 3: how often is the gradient zero?
+> Each roll-out solves a prompt independently with probability $p$, and $K = 8$. Find the probability that a group has zero advantage (all fail or all succeed) for $p = 0.05$ and for $p = 0.5$.
+>
+> - $p = 0.05$: $0.95^8 + 0.05^8 = 0.663$.
+> - $p = 0.5$: $2\times0.5^8 = 0.0078$.
+>
+> $$\boxed{66\%\ \text{of hard prompts give no signal};\ \text{under } 1\%\ \text{at } p = 0.5}$$
+>
+> This is property 1 of §1.5 in numbers. It is why mixed-difficulty prompts are kept.
 
-Shaping gives the wrong answer some signal and penalizes rambling, at the risk of being gamed (e.g. perfect format, wrong answer).
+> [!example]- Problem 4: the reward–utility gap
+> Using §3.2, find $\Delta$ for both responses in each setting, and which response a reward maximizer prefers versus which the user prefers.
+>
+> | Setting | $\Delta_A$ | $\Delta_B$ | Reward picks | Utility picks |
+> |---|---|---|---|---|
+> | RLHF | $0.75 - 0.95 = -0.20$ | $0.94 - 0.65 = +0.29$ | $B$ | $A$ |
+> | RLAIF | $0.65 - 1 = -0.35$ | $0.92 - 0.35 = +0.57$ | $B$ | $A$ |
+> | RLVR | $1 - 1 = 0$ | $1 - 0.35 = +0.65$ | tie | $A$ |
+>
+> $$\boxed{\text{In every case the optimizer favours (or can't reject) } y_B \text{, the response the user values less.}}$$
 
-**Problem 2: GRPO with RLVR and the KL folded in.** $K = 4$ roll-outs have task rewards $[1, 0, 0, 1]$ and summed log-ratios $\sum_t(\log\pi^{\text{old}} - \log\pi_{\text{ref}}) = [0.5, 0.2, 0.1, 1.5]$, with $\beta = 0.1$. Find $r_{b,k}$ and the advantages.
+> [!example]- Problem 5: hybrid reward
+> With $\lambda = (0.5, 0.3, 0.2)$, $R_{HF} = 0.8$, $R_{VR} = 1$ and $R_{AIF} = 0.4$, find $R_{\text{hybrid}}$, and again if the safety judge drops to $R_{AIF} = 0$.
+>
+> - $0.5(0.8) + 0.3(1) + 0.2(0.4) = 0.40 + 0.30 + 0.08 = 0.78$.
+> - With $R_{AIF} = 0$: $0.70$.
+>
+> $$\boxed{R_{\text{hybrid}} = 0.78 \to 0.70}$$
+>
+> A safety failure costs only 0.08 here. This is the "opaque trade-off" of §4.1: the weights decide how much harm is tolerated.
 
-$r_{b,k} = r_{\text{task}} - 0.1\times(\cdot) = [0.95, -0.02, -0.01, 0.85]$, so $\mu_b = 1.77/4 = 0.4425$.
+> [!example]- Problem 6: self-consistency
+> Three independent CoT samples are each correct with probability $0.6$, and the answer is taken by majority vote. Assume the wrong answers don't agree with each other, so a correct majority needs at least 2 correct. Find the accuracy.
+>
+> $P(\ge 2\text{ correct}) = \binom32(0.6)^2(0.4) + (0.6)^3 = 0.432 + 0.216$.
+>
+> $$\boxed{0.648 > 0.6}$$
+>
+> Voting over samples beats a single sample whenever each sample is better than chance.
 
-$$\boxed{A = [0.5075,\ -0.4625,\ -0.4525,\ 0.4075]}$$
-
-The fourth roll-out is right but has drifted far from the reference, so it gets less credit than the first.
-
-**Problem 3: how often is the gradient zero?** Each roll-out solves a prompt independently with probability $p$, and $K = 8$. Find the probability that a group has zero advantage (all fail or all succeed) for $p = 0.05$ and for $p = 0.5$.
-
-- $p = 0.05$: $0.95^8 + 0.05^8 = 0.663$.
-- $p = 0.5$: $2\times0.5^8 = 0.0078$.
-
-$$\boxed{66\%\ \text{of hard prompts give no signal};\ \text{under } 1\%\ \text{at } p = 0.5}$$
-
-This is property 1 of §1.5 in numbers. It is why mixed-difficulty prompts are kept.
-
-**Problem 4: the reward–utility gap.** Using §3.2, find $\Delta$ for both responses in each setting, and which response a reward maximizer prefers versus which the user prefers.
-
-| Setting | $\Delta_A$ | $\Delta_B$ | Reward picks | Utility picks |
-|---|---|---|---|---|
-| RLHF | $0.75 - 0.95 = -0.20$ | $0.94 - 0.65 = +0.29$ | $B$ | $A$ |
-| RLAIF | $0.65 - 1 = -0.35$ | $0.92 - 0.35 = +0.57$ | $B$ | $A$ |
-| RLVR | $1 - 1 = 0$ | $1 - 0.35 = +0.65$ | tie | $A$ |
-
-$$\boxed{\text{In every case the optimizer favours (or can't reject) } y_B \text{, the response the user values less.}}$$
-
-**Problem 5: hybrid reward.** With $\lambda = (0.5, 0.3, 0.2)$, $R_{HF} = 0.8$, $R_{VR} = 1$ and $R_{AIF} = 0.4$, find $R_{\text{hybrid}}$, and again if the safety judge drops to $R_{AIF} = 0$.
-
-- $0.5(0.8) + 0.3(1) + 0.2(0.4) = 0.40 + 0.30 + 0.08 = 0.78$.
-- With $R_{AIF} = 0$: $0.70$.
-
-$$\boxed{R_{\text{hybrid}} = 0.78 \to 0.70}$$
-
-A safety failure costs only 0.08 here. This is the "opaque trade-off" of §4.1: the weights decide how much harm is tolerated.
-
-**Problem 6: self-consistency.** Three independent CoT samples are each correct with probability $0.6$, and the answer is taken by majority vote. Assume the wrong answers don't agree with each other, so a correct majority needs at least 2 correct. Find the accuracy.
-
-$P(\ge 2\text{ correct}) = \binom32(0.6)^2(0.4) + (0.6)^3 = 0.432 + 0.216$.
-
-$$\boxed{0.648 > 0.6}$$
-
-Voting over samples beats a single sample whenever each sample is better than chance.
-
-**Problem 7: ORM vs PRM.** A 4-step solution has a wrong step 3 but reaches the right final answer. Find the ORM / RLVR reward and the PRM step rewards, with their sum and minimum.
-
-- ORM / RLVR: $1$, since only the final answer is checked.
-- PRM: $[+1, +1, -1, +1]$, with sum $2$ and min $-1$.
-
-$$\boxed{\text{ORM} = 1;\quad \text{PRM} = [+1, +1, -1, +1]}$$
-
-Only the PRM flags the bad step. Aggregating by the minimum makes the flaw decisive.
+> [!example]- Problem 7: ORM vs PRM
+> A 4-step solution has a wrong step 3 but reaches the right final answer. Find the ORM / RLVR reward and the PRM step rewards, with their sum and minimum.
+>
+> - ORM / RLVR: $1$, since only the final answer is checked.
+> - PRM: $[+1, +1, -1, +1]$, with sum $2$ and min $-1$.
+>
+> $$\boxed{\text{ORM} = 1;\quad \text{PRM} = [+1, +1, -1, +1]}$$
+>
+> Only the PRM flags the bad step. Aggregating by the minimum makes the flaw decisive.
 
 ---
 

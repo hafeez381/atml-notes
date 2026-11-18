@@ -689,91 +689,104 @@ And the class note's research question: **how can we choose the low-rank update 
 
 ## Numerical Problems
 
-**Problem 1 (reward vs utility).** Using [[#1. Reward Misalignment as a Function of the Policy|§1]]'s values, find the $p$ at which $J_R(p) = J_U(p)$, and the utility lost if the optimizer drives $p$ from 0 to 1.
+> [!example]- Problem 1 (reward vs utility)
+> Using [[#1. Reward Misalignment as a Function of the Policy|§1]]'s values, find the $p$ at which $J_R(p) = J_U(p)$, and the utility lost if the optimizer drives $p$ from 0 to 1.
+>
+> $0.95 - 0.30p = 0.75 + 0.19p \Rightarrow 0.20 = 0.49p \Rightarrow p = 0.408$. Utility goes from $J_U(0) = 0.95$ to $J_U(1) = 0.65$ while reward goes from 0.75 to 0.94.
+>
+> $$\boxed{p = 0.408;\quad \text{utility lost} = 0.30 \text{ for a reward gain of } 0.19}$$
 
-$0.95 - 0.30p = 0.75 + 0.19p \Rightarrow 0.20 = 0.49p \Rightarrow p = 0.408$. Utility goes from $J_U(0) = 0.95$ to $J_U(1) = 0.65$ while reward goes from 0.75 to 0.94.
+> [!example]- Problem 2 ($L_2$ vs EWC)
+> $\theta_0 = (0.5, 2.5)$, $\theta = (1.0, 2.0)$, Fisher diagonal $F = (4, 0.1)$. Compute both penalties.
+>
+> Differences $(0.5, -0.5)$. $\Omega_{L_2} = 0.25 + 0.25 = 0.5$. $\Omega_{\text{EWC}} = 4(0.25) + 0.1(0.25) = 1.025$.
+>
+> $$\boxed{\Omega_{L_2} = 0.5,\quad \Omega_{\text{EWC}} = 1.025}$$
+>
+> EWC charges almost everything to the important first weight; moving the second one is nearly free.
 
-$$\boxed{p = 0.408;\quad \text{utility lost} = 0.30 \text{ for a reward gain of } 0.19}$$
+> [!example]- Problem 3 (selective tuning)
+> $\theta_0 = [1.2,-2,0.1,2,4,5]^\top$, $M = [1,0,1,0,0,0]^\top$, $\phi_1 = -0.1$, $\phi_3 = 2.1$. Find $\theta_{\text{FT}}$.
+>
+> Only entries 1 and 3 change: $1.2 - 0.1 = 1.1$, $0.1 + 2.1 = 2.2$.
+>
+> $$\boxed{\theta_{\text{FT}} = [1.1, -2, 2.2, 2, 4, 5]^\top}$$
 
-**Problem 2 ($L_2$ vs EWC).** $\theta_0 = (0.5, 2.5)$, $\theta = (1.0, 2.0)$, Fisher diagonal $F = (4, 0.1)$. Compute both penalties.
+> [!example]- Problem 4 (IA³)
+> $h = [2,4,3,5]^\top$, $\gamma = [1, 0, 2, 0.5]^\top$. Find $h'$ and say what each entry does.
+>
+> $h' = h\odot\gamma = [2, 0, 6, 2.5]^\top$: preserve, suppress, amplify, attenuate.
+>
+> $$\boxed{h' = [2, 0, 6, 2.5]^\top}$$
 
-Differences $(0.5, -0.5)$. $\Omega_{L_2} = 0.25 + 0.25 = 0.5$. $\Omega_{\text{EWC}} = 4(0.25) + 0.1(0.25) = 1.025$.
+> [!example]- Problem 5 (parameter counts)
+> $d = d_i = d_o = 4096$. (a) Adapter with $r = 16$; (b) LoRA with $r = 8$ on one $d\times d$ matrix: count parameters and the fraction of the full matrix; (c) nullity of $A$.
+>
+> (a) $2dr = 2(4096)(16) = 131{,}072$. (b) $r(d_i+d_o) = 8(8192) = 65{,}536$ vs $4096^2 = 16{,}777{,}216$, i.e. 0.39%. (c) $4096 - 8 = 4088$.
+>
+> $$\boxed{131{,}072;\quad 65{,}536\ (0.39\%);\quad \text{nullity} = 4088}$$
 
-$$\boxed{\Omega_{L_2} = 0.5,\quad \Omega_{\text{EWC}} = 1.025}$$
+> [!example]- Problem 6 (rank-one LoRA)
+> $W_0 = \mathrm{diag}(1,2,3)$, $a^\top = [1,0,1]$, $b = [0,1,0]^\top$, $x = [1,2,3]^\top$. Compute $h$, $\Delta h$, $h_{\text{new}}$ and check against $x_1 + 2x_2 + x_3$.
+>
+> $W_0x = [1,4,9]^\top$; $a^\top x = 4$; $\Delta h = [0,4,0]^\top$; $h_{\text{new}} = [1,8,9]^\top$. Check: $1 + 4 + 3 = 8$.
+>
+> $$\boxed{h_{\text{new}} = [1, 8, 9]^\top}$$
 
-EWC charges almost everything to the important first weight; moving the second one is nearly free.
+> [!example]- Problem 7 (rank-2 and null space)
+> With [[#8.4 Rank-2 corrections and choosing $r$|§8.4]]'s $B$ and $A$, compute $\Delta h$ for $x = [1,2,3]^\top$ and find a nonzero $v$ with $Av = 0$.
+>
+> $Ax = [1+3,\ 1-3]^\top = [4,-2]^\top$; $\Delta h = BAx = [0,4,-2]^\top$. Null space: $v = [0,1,0]^\top$ gives $Av = 0$ (rank 2 + nullity 1 = 3).
+>
+> $$\boxed{\Delta h = [0, 4, -2]^\top;\quad v = [0,1,0]^\top}$$
 
-**Problem 3 (selective tuning).** $\theta_0 = [1.2,-2,0.1,2,4,5]^\top$, $M = [1,0,1,0,0,0]^\top$, $\phi_1 = -0.1$, $\phi_3 = 2.1$. Find $\theta_{\text{FT}}$.
+> [!example]- Problem 8 (LoRA gradients at initialization)
+> $d_o = d_i = 3$, $r = 1$, $s = 1$, $A = [1,0,1]$, $B = 0$, $x = [1,2,3]^\top$, $g = \partial L/\partial h = [0,1,0]^\top$, $\eta = 0.1$. Find both gradients and $B$ after one step.
+>
+> $Ax = 4$. $\partial L/\partial B = s\,g\,(Ax)^\top = [0,4,0]^\top$. $\partial L/\partial A = s\,B^\top g\,x^\top = 0$. $B \leftarrow 0 - 0.1[0,4,0]^\top = [0,-0.4,0]^\top$.
+>
+> $$\boxed{\partial L/\partial B = [0,4,0]^\top,\ \partial L/\partial A = 0,\ B = [0,-0.4,0]^\top}$$
 
-Only entries 1 and 3 change: $1.2 - 0.1 = 1.1$, $0.1 + 2.1 = 2.2$.
+> [!example]- Problem 9 (emergent misalignment)
+> Rank-one LoRA with $a = [1,0,1]^\top$, $b = [0,1,0]^\top$. (a) For $z^B = [2,5,-2]^\top$ and $z^B = [1,0,1]^\top$, find the injection. (b) If $R_B(\theta_0) = 0.05$ and $R_B(\theta_{\text{FT}}) = 0.20$, find $\Delta_{\text{EM}}$.
+>
+> (a) $a^\top[2,5,-2]^\top = 0 \Rightarrow$ injection $0$ (in the null space, unaffected). $a^\top[1,0,1]^\top = 2 \Rightarrow b\cdot2 = [0,2,0]^\top$. (b) $0.20 - 0.05$.
+>
+> $$\boxed{0;\quad [0,2,0]^\top;\quad \Delta_{\text{EM}} = 0.15}$$
 
-$$\boxed{\theta_{\text{FT}} = [1.1, -2, 2.2, 2, 4, 5]^\top}$$
+> [!example]- Problem 10 (verbalizer vs new head)
+> For a sentiment task, the pre-trained LM-head rows give $w_{\text{Positive}}^\top h_T = 2.0$ and $w_{\text{Negative}}^\top h_T = 0.5$. Find $P(y = \text{Positive}\mid x)$ with the verbalizer, and the number of new parameters a new task head would need for $d = 4096$ and $K = 2$.
+>
+> By the verbalizer formula of [[#6.2 Verbalizer|§6.2]], $P = e^{2.0}/(e^{2.0} + e^{0.5})$. Dividing through by $e^{2.0}$ gives $1/(1 + e^{-1.5})$, a sigmoid of the logit difference. A new head has $W\in\mathbb R^{2\times4096}$ and $b\in\mathbb R^{2}$: $2\cdot4096 + 2$.
+>
+> $$\boxed{P(\text{Positive}\mid x) = 0.818;\quad \text{new head: } 8194\ \text{parameters (verbalizer: 0 new)}}$$
 
-**Problem 4 (IA³).** $h = [2,4,3,5]^\top$, $\gamma = [1, 0, 2, 0.5]^\top$. Find $h'$ and say what each entry does.
+> [!example]- Problem 11 (distillation loss)
+> At one prompt, the teacher's next-token distribution over three tokens is $(0.7, 0.2, 0.1)$ and the student's is $(0.5, 0.3, 0.2)$. Compute the [[#3.5 Distillation-based fine-tuning|§3.5]] loss $\mathrm{KL}(P_{\theta_T}\,\|\,P_\theta)$ in nats.
+>
+> $\sum_k p_k\ln(p_k/q_k) = 0.7\ln1.4 + 0.2\ln(2/3) + 0.1\ln0.5 = 0.2355 - 0.0811 - 0.0693$.
+>
+> $$\boxed{\mathrm{KL} = 0.0851\ \text{nats}}$$
+>
+> The first token contributes the only positive term: the teacher puts more mass there than the student does, and the forward KL charges the student for that under-coverage.
 
-$h' = h\odot\gamma = [2, 0, 6, 2.5]^\top$: preserve, suppress, amplify, attenuate.
+> [!example]- Problem 12 (merging LoRA)
+> Merge the rank-one update of Problem 6 ($s = 1$) into $W_0 = \mathrm{diag}(1,2,3)$, and check that the merged matrix gives the same output for $x = [1,2,3]^\top$.
+>
+> $sBA = b\,a^\top$ has a single nonzero row, row 2, equal to $[1, 0, 1]$. So $W^* = W_0 + b\,a^\top$, and $W^*x = [1,\ 1 + 4 + 3,\ 9]^\top$.
+>
+> $$\boxed{W^* = \begin{bmatrix}1&0&0\\1&2&1\\0&0&3\end{bmatrix},\quad W^*x = [1, 8, 9]^\top}$$
+>
+> This matches Problem 6's $h_{\text{new}}$, so merging changes nothing at inference except the cost of the second branch ([[#8.2 Training, merging, and LoRA vs adapters|§8.2]]).
 
-$$\boxed{h' = [2, 0, 6, 2.5]^\top}$$
-
-**Problem 5 (parameter counts).** $d = d_i = d_o = 4096$. (a) Adapter with $r = 16$; (b) LoRA with $r = 8$ on one $d\times d$ matrix: count parameters and the fraction of the full matrix; (c) nullity of $A$.
-
-(a) $2dr = 2(4096)(16) = 131{,}072$. (b) $r(d_i+d_o) = 8(8192) = 65{,}536$ vs $4096^2 = 16{,}777{,}216$, i.e. 0.39%. (c) $4096 - 8 = 4088$.
-
-$$\boxed{131{,}072;\quad 65{,}536\ (0.39\%);\quad \text{nullity} = 4088}$$
-
-**Problem 6 (rank-one LoRA).** $W_0 = \mathrm{diag}(1,2,3)$, $a^\top = [1,0,1]$, $b = [0,1,0]^\top$, $x = [1,2,3]^\top$. Compute $h$, $\Delta h$, $h_{\text{new}}$ and check against $x_1 + 2x_2 + x_3$.
-
-$W_0x = [1,4,9]^\top$; $a^\top x = 4$; $\Delta h = [0,4,0]^\top$; $h_{\text{new}} = [1,8,9]^\top$. Check: $1 + 4 + 3 = 8$.
-
-$$\boxed{h_{\text{new}} = [1, 8, 9]^\top}$$
-
-**Problem 7 (rank-2 and null space).** With [[#8.4 Rank-2 corrections and choosing $r$|§8.4]]'s $B$ and $A$, compute $\Delta h$ for $x = [1,2,3]^\top$ and find a nonzero $v$ with $Av = 0$.
-
-$Ax = [1+3,\ 1-3]^\top = [4,-2]^\top$; $\Delta h = BAx = [0,4,-2]^\top$. Null space: $v = [0,1,0]^\top$ gives $Av = 0$ (rank 2 + nullity 1 = 3).
-
-$$\boxed{\Delta h = [0, 4, -2]^\top;\quad v = [0,1,0]^\top}$$
-
-**Problem 8 (LoRA gradients at initialization).** $d_o = d_i = 3$, $r = 1$, $s = 1$, $A = [1,0,1]$, $B = 0$, $x = [1,2,3]^\top$, $g = \partial L/\partial h = [0,1,0]^\top$, $\eta = 0.1$. Find both gradients and $B$ after one step.
-
-$Ax = 4$. $\partial L/\partial B = s\,g\,(Ax)^\top = [0,4,0]^\top$. $\partial L/\partial A = s\,B^\top g\,x^\top = 0$. $B \leftarrow 0 - 0.1[0,4,0]^\top = [0,-0.4,0]^\top$.
-
-$$\boxed{\partial L/\partial B = [0,4,0]^\top,\ \partial L/\partial A = 0,\ B = [0,-0.4,0]^\top}$$
-
-**Problem 9 (emergent misalignment).** Rank-one LoRA with $a = [1,0,1]^\top$, $b = [0,1,0]^\top$. (a) For $z^B = [2,5,-2]^\top$ and $z^B = [1,0,1]^\top$, find the injection. (b) If $R_B(\theta_0) = 0.05$ and $R_B(\theta_{\text{FT}}) = 0.20$, find $\Delta_{\text{EM}}$.
-
-(a) $a^\top[2,5,-2]^\top = 0 \Rightarrow$ injection $0$ (in the null space, unaffected). $a^\top[1,0,1]^\top = 2 \Rightarrow b\cdot2 = [0,2,0]^\top$. (b) $0.20 - 0.05$.
-
-$$\boxed{0;\quad [0,2,0]^\top;\quad \Delta_{\text{EM}} = 0.15}$$
-
-**Problem 10 (verbalizer vs new head).** For a sentiment task, the pre-trained LM-head rows give $w_{\text{Positive}}^\top h_T = 2.0$ and $w_{\text{Negative}}^\top h_T = 0.5$. Find $P(y = \text{Positive}\mid x)$ with the verbalizer, and the number of new parameters a new task head would need for $d = 4096$ and $K = 2$.
-
-By the verbalizer formula of [[#6.2 Verbalizer|§6.2]], $P = e^{2.0}/(e^{2.0} + e^{0.5})$. Dividing through by $e^{2.0}$ gives $1/(1 + e^{-1.5})$, a sigmoid of the logit difference. A new head has $W\in\mathbb R^{2\times4096}$ and $b\in\mathbb R^{2}$: $2\cdot4096 + 2$.
-
-$$\boxed{P(\text{Positive}\mid x) = 0.818;\quad \text{new head: } 8194\ \text{parameters (verbalizer: 0 new)}}$$
-
-**Problem 11 (distillation loss).** At one prompt, the teacher's next-token distribution over three tokens is $(0.7, 0.2, 0.1)$ and the student's is $(0.5, 0.3, 0.2)$. Compute the [[#3.5 Distillation-based fine-tuning|§3.5]] loss $\mathrm{KL}(P_{\theta_T}\,\|\,P_\theta)$ in nats.
-
-$\sum_k p_k\ln(p_k/q_k) = 0.7\ln1.4 + 0.2\ln(2/3) + 0.1\ln0.5 = 0.2355 - 0.0811 - 0.0693$.
-
-$$\boxed{\mathrm{KL} = 0.0851\ \text{nats}}$$
-
-The first token contributes the only positive term: the teacher puts more mass there than the student does, and the forward KL charges the student for that under-coverage.
-
-**Problem 12 (merging LoRA).** Merge the rank-one update of Problem 6 ($s = 1$) into $W_0 = \mathrm{diag}(1,2,3)$, and check that the merged matrix gives the same output for $x = [1,2,3]^\top$.
-
-$sBA = b\,a^\top$ has a single nonzero row, row 2, equal to $[1, 0, 1]$. So $W^* = W_0 + b\,a^\top$, and $W^*x = [1,\ 1 + 4 + 3,\ 9]^\top$.
-
-$$\boxed{W^* = \begin{bmatrix}1&0&0\\1&2&1\\0&0&3\end{bmatrix},\quad W^*x = [1, 8, 9]^\top}$$
-
-This matches Problem 6's $h_{\text{new}}$, so merging changes nothing at inference except the cost of the second branch ([[#8.2 Training, merging, and LoRA vs adapters|§8.2]]).
-
-**Problem 13 (how cheap is each PEFT family?).** For a 7B-parameter LLM with $d = 4096$, 32 layers and FFN width 11,008 *(LLaMA-7B-like sizes, assumed for the exercise)*, count the trainable parameters of (a) a soft prompt with $m = 20$, (b) IA³ with $\gamma_K, \gamma_V\in\mathbb R^{d}$ and $\gamma_{FF}\in\mathbb R^{11008}$ in every layer, and (c) LoRA with $r = 8$ on $W_Q$ and $W_V$ in every layer. Give each as a fraction of 7B.
-
-(a) $m\cdot d = 20\cdot4096$. (b) $32\,(2\cdot4096 + 11008) = 32\cdot19{,}200$. (c) Each $4096\times4096$ matrix costs $r(d_i + d_o) = 8\cdot8192 = 65{,}536$; two per layer over 32 layers.
-
-$$\boxed{\text{(a) } 81{,}920\ (0.0012\%)\quad \text{(b) } 614{,}400\ (0.0088\%)\quad \text{(c) } 4{,}194{,}304\ (0.06\%)}$$
-
-All three train well under 0.1% of the model, which is the point of PEFT ([[#7.1 The PEFT objective|§7.1]]); they differ in where $\phi$ enters, not much in size.
+> [!example]- Problem 13 (how cheap is each PEFT family?)
+> For a 7B-parameter LLM with $d = 4096$, 32 layers and FFN width 11,008 *(LLaMA-7B-like sizes, assumed for the exercise)*, count the trainable parameters of (a) a soft prompt with $m = 20$, (b) IA³ with $\gamma_K, \gamma_V\in\mathbb R^{d}$ and $\gamma_{FF}\in\mathbb R^{11008}$ in every layer, and (c) LoRA with $r = 8$ on $W_Q$ and $W_V$ in every layer. Give each as a fraction of 7B.
+>
+> (a) $m\cdot d = 20\cdot4096$. (b) $32\,(2\cdot4096 + 11008) = 32\cdot19{,}200$. (c) Each $4096\times4096$ matrix costs $r(d_i + d_o) = 8\cdot8192 = 65{,}536$; two per layer over 32 layers.
+>
+> $$\boxed{\text{(a) } 81{,}920\ (0.0012\%)\quad \text{(b) } 614{,}400\ (0.0088\%)\quad \text{(c) } 4{,}194{,}304\ (0.06\%)}$$
+>
+> All three train well under 0.1% of the model, which is the point of PEFT ([[#7.1 The PEFT objective|§7.1]]); they differ in where $\phi$ enters, not much in size.
 
 ---
 

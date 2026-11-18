@@ -1018,136 +1018,150 @@ $$\mathcal L_{\text{SimPO}} = -\log\sigma\Big(\frac{\beta}{|y^+|}\log\pi_\theta(
 
 ## Numerical Problems
 
-**Problem 1: reward-model loss and shift invariance.** $r_\psi(x, y^+) = 2.0$ and $r_\psi(x, y^-) = 0.5$. Find $P(y^+\succ y^-)$ and the loss, then repeat with both rewards shifted by $+10$.
+> [!example]- Problem 1: reward-model loss and shift invariance
+> $r_\psi(x, y^+) = 2.0$ and $r_\psi(x, y^-) = 0.5$. Find $P(y^+\succ y^-)$ and the loss, then repeat with both rewards shifted by $+10$.
+>
+> The difference is $1.5$, so $P = \sigma(1.5) = 1/(1 + e^{-1.5}) = 1/1.2231$ and the loss is $-\ln 0.8176$. Shifting both rewards leaves the difference at $1.5$.
+>
+> $$\boxed{P = 0.818,\ \mathcal L = 0.201\ \text{(unchanged after the shift)}}$$
+>
+> This is limitation 1 of §3.6: only the difference is learned.
 
-The difference is $1.5$, so $P = \sigma(1.5) = 1/(1 + e^{-1.5}) = 1/1.2231$ and the loss is $-\ln 0.8176$. Shifting both rewards leaves the difference at $1.5$.
+> [!example]- Problem 2: PPO clipping
+> With $\epsilon = 0.2$, find $\mathcal L^{\text{clip}}$ and say whether the token still pushes.
+>
+> | Case | Region | $\rho A$ | $\text{clip}(\rho)\,A$ | min | Pushes? |
+> |---|---|---|---|---|---|
+> | $A = +2$, $\rho = 1.5$ | 5 | $3.0$ | $1.2 \times 2 = 2.4$ | $2.4$ | no: clipped, flat |
+> | $A = +2$, $\rho = 0.7$ | 3 | $1.4$ | $0.8 \times 2 = 1.6$ | $1.4$ | yes: still raises $\rho$ |
+> | $A = -1$, $\rho = 0.6$ | 4 | $-0.6$ | $0.8 \times (-1) = -0.8$ | $-0.8$ | no: clipped, flat |
+> | $A = -1$, $\rho = 1.4$ | 6 | $-1.4$ | $1.2 \times (-1) = -1.2$ | $-1.4$ | yes: still lowers $\rho$ |
+>
+> $$\boxed{2.4,\ 1.4,\ -0.8,\ -1.4}$$
+>
+> Clipping only stops the "already improved enough" direction.
 
-$$\boxed{P = 0.818,\ \mathcal L = 0.201\ \text{(unchanged after the shift)}}$$
+> [!example]- Problem 3: value targets and GAE
+> A 3-token response has a sparse reward $r = [0, 0, 1]$, with $\gamma = 1$ and $\lambda = 0.5$. The old critic predicts $V(s_1) = 0.5$, $V(s_2) = 0.6$, $V(s_3) = 0.8$, and $V(s_4) = 0$ (terminal). Find the MC and TD(0) targets at $s_1$ and the GAE advantages.
+>
+> - **Targets at $s_1$:** MC $= 0 + 0 + 1 = 1$; TD(0) $= 0 + 0.6 = 0.6$.
+> - **TD errors:**
+>   - $\delta_1 = 0 + 0.6 - 0.5 = 0.1$
+>   - $\delta_2 = 0 + 0.8 - 0.6 = 0.2$
+>   - $\delta_3 = 1 + 0 - 0.8 = 0.2$
+> - **GAE** ($\gamma\lambda = 0.5$):
+>   - $A_1 = 0.1 + 0.5(0.2) + 0.25(0.2) = 0.25$
+>   - $A_2 = 0.2 + 0.5(0.2) = 0.3$
+>   - $A_3 = 0.2$
+>
+> $$\boxed{V^*_{\text{MC}} = 1,\ V^*_{\text{TD(0)}} = 0.6;\quad A = [0.25, 0.30, 0.20]}$$
+>
+> Even though only the last token was rewarded, every token gets credit through the critic.
 
-This is limitation 1 of §3.6: only the difference is learned.
+> [!example]- Problem 4: GRPO advantages
+> $K = 4$ completions score $r = [0.9, 0.4, 0.6, 0.1]$. Find the advantages.
+>
+> $\bar r = 0.5$, and the deviations are $[0.4, -0.1, 0.1, -0.4]$. Then $\sigma = \sqrt{(0.16 + 0.01 + 0.01 + 0.16)/4} = \sqrt{0.085} = 0.2915$.
+>
+> $$\boxed{A = [1.37,\ -0.34,\ 0.34,\ -1.37]\ \text{(normalized)};\quad [0.4, -0.1, 0.1, -0.4]\ \text{(the professor's mean-only form)}}$$
+>
+> The advantages sum to zero: half the group is pushed up and half down, whatever the absolute reward level.
 
-**Problem 2: PPO clipping.** With $\epsilon = 0.2$, find $\mathcal L^{\text{clip}}$ and say whether the token still pushes.
+> [!example]- Problem 5: DPO loss
+> $\beta = 0.1$. $\log\pi_\theta(y^+) = -12$ and $\log\pi_{\text{ref}}(y^+) = -14$; $\log\pi_\theta(y^-) = -15$ and $\log\pi_{\text{ref}}(y^-) = -13$. Find $\mathcal L_{\text{DPO}}$, and the loss at initialization ($\pi_\theta = \pi_{\text{ref}}$).
+>
+> $a = 0.1(-12 + 14) = 0.2$ and $b = 0.1(-15 + 13) = -0.2$, so $a - b = 0.4$. Then $\sigma(0.4) = 1/(1 + e^{-0.4}) = 0.5987$, and the loss is $-\ln 0.5987$. At initialization $a = b = 0$, giving $-\ln\sigma(0) = \ln 2$.
+>
+> $$\boxed{\mathcal L = 0.513;\quad \mathcal L_{\text{init}} = \ln 2 = 0.693}$$
 
-| Case | Region | $\rho A$ | $\text{clip}(\rho)\,A$ | min | Pushes? |
-|---|---|---|---|---|---|
-| $A = +2$, $\rho = 1.5$ | 5 | $3.0$ | $1.2 \times 2 = 2.4$ | $2.4$ | no: clipped, flat |
-| $A = +2$, $\rho = 0.7$ | 3 | $1.4$ | $0.8 \times 2 = 1.6$ | $1.4$ | yes: still raises $\rho$ |
-| $A = -1$, $\rho = 0.6$ | 4 | $-0.6$ | $0.8 \times (-1) = -0.8$ | $-0.8$ | no: clipped, flat |
-| $A = -1$, $\rho = 1.4$ | 6 | $-1.4$ | $1.2 \times (-1) = -1.2$ | $-1.4$ | yes: still lowers $\rho$ |
+> [!example]- Problem 6: KL-shaped token reward
+> The last token has $\pi_\theta(y_T) = 0.5$ and $\pi_{\text{ref}}(y_T) = 0.25$, with $\beta = 0.1$ and $r_\psi = 0.8$. An earlier token has $\pi_\theta = \pi_{\text{ref}}$. Find both shaped rewards.
+>
+> Last token: $0.8 - 0.1\ln 2 = 0.8 - 0.0693$. Earlier token: $0 - 0.1\ln 1 = 0$.
+>
+> $$\boxed{r_T = 0.731,\quad r_{t<T} = 0}$$
+>
+> A token is taxed only to the extent the policy has moved away from the reference on it.
 
-$$\boxed{2.4,\ 1.4,\ -0.8,\ -1.4}$$
+> [!example]- Problem 7: Bradley–Terry from strengths
+> Two responses have rewards $r_w = 1.1$ and $r_l = 0$. Find their BT strengths, $P(y_w \succ y_l)$ and the reward loss.
+>
+> The strengths are $p_w = e^{1.1} = 3.004$ and $p_l = e^0 = 1$, so $P = 3.004/4.004$. Equivalently, $\sigma(1.1) = 0.750$. The loss is $-\ln 0.750$.
+>
+> $$\boxed{P = 0.750,\quad \mathcal L = 0.288}$$
+>
+> A reward gap of $\ln 3$ means "three times as strong", i.e. preferred 3 times out of 4.
 
-Clipping only stops the "already improved enough" direction.
+> [!example]- Problem 8: pairs and margins
+> (a) $K = 4$ responses are ranked $y_2 \succ y_4 \succ y_1 \succ y_3$. List the comparison pairs. (b) A pair has $r_w - r_l = 1.5$ and a Llama-2 margin $m = 1.0$. Compare the loss with and without the margin.
+>
+> (a) $\binom42 = 6$ pairs: $(y_2, y_4), (y_2, y_1), (y_2, y_3), (y_4, y_1), (y_4, y_3), (y_1, y_3)$, winner first. (b) Without the margin, $-\ln\sigma(1.5) = 0.201$. With it, $-\ln\sigma(1.5 - 1.0) = -\ln 0.6225$.
+>
+> $$\boxed{6\text{ pairs};\quad \mathcal L = 0.201 \to 0.474 \text{ with the margin}}$$
+>
+> The margin keeps the loss, and so the gradient, high until the gap exceeds $m$.
 
-**Problem 3: value targets and GAE.** A 3-token response has a sparse reward $r = [0, 0, 1]$, with $\gamma = 1$ and $\lambda = 0.5$. The old critic predicts $V(s_1) = 0.5$, $V(s_2) = 0.6$, $V(s_3) = 0.8$, and $V(s_4) = 0$ (terminal). Find the MC and TD(0) targets at $s_1$ and the GAE advantages.
+> [!example]- Problem 9: Plackett–Luce
+> Three responses with rewards $[2, 1, 0]$ are ranked $y_1 \succ y_2 \succ y_3$. Find the ranking probability and the $K$-wise loss.
+>
+> $P = \frac{e^2}{e^2 + e + 1}\cdot\frac{e}{e + 1} = \frac{7.389}{11.107}\cdot\frac{2.718}{3.718} = 0.665 \times 0.731$, and the loss is $-\ln 0.486$.
+>
+> $$\boxed{P = 0.486,\quad \mathcal L_{PL} = 0.721}$$
+>
+> The second factor is just the BT probability of $y_2$ over $y_3$: PL chains BT-like choices.
 
-- **Targets at $s_1$:** MC $= 0 + 0 + 1 = 1$; TD(0) $= 0 + 0.6 = 0.6$.
-- **TD errors:**
-  - $\delta_1 = 0 + 0.6 - 0.5 = 0.1$
-  - $\delta_2 = 0 + 0.8 - 0.6 = 0.2$
-  - $\delta_3 = 1 + 0 - 0.8 = 0.2$
-- **GAE** ($\gamma\lambda = 0.5$):
-  - $A_1 = 0.1 + 0.5(0.2) + 0.25(0.2) = 0.25$
-  - $A_2 = 0.2 + 0.5(0.2) = 0.3$
-  - $A_3 = 0.2$
+> [!example]- Problem 10: the professor's 2+2 example, wrong answer
+> With $\pi_\theta^{\text{old}}(\text{"4"}) = 0.1$ and $\pi_\theta(\text{"4"}) = 0.15$ as before, suppose the reward is $-1$ and $V_\phi = 0.2$. Find the final score for $\rho = 1.5$, and again for $\rho = 0.5$.
+>
+> $A = -1 - 0.2 = -1.2$.
+> - **$\rho = 1.5$:** raw $= -1.8$; clipped $= 1.2 \times (-1.2) = -1.44$; $\min = -1.8$. Not clipped (region 6), so the full gradient applies.
+> - **$\rho = 0.5$:** raw $= -0.6$; clipped $= 0.8 \times (-1.2) = -0.96$; $\min = -0.96$. Clipped (region 4), so the gradient is 0.
+>
+> $$\boxed{-1.8\ (\rho = 1.5),\qquad -0.96\ (\rho = 0.5)}$$
+>
+> Lowering a bad token's probability is rewarded only down to $1 - \epsilon$.
 
-$$\boxed{V^*_{\text{MC}} = 1,\ V^*_{\text{TD(0)}} = 0.6;\quad A = [0.25, 0.30, 0.20]}$$
+> [!example]- Problem 11: GRPO's length bias, and the fixes
+> One prompt has $K = 2$ correct completions, both with $A = +1$, of lengths $T_1 = 10$ and $T_2 = 100$. Find the weight each *token* receives under GRPO, DAPO and Dr. GRPO ($T_{\max} = 100$).
+>
+> - **GRPO** $\frac1K\cdot\frac{A}{T_k}$: $\frac12\cdot\frac1{10} = 0.05$ and $\frac12\cdot\frac1{100} = 0.005$.
+> - **DAPO** $\frac{A}{\sum T_k}$: $\frac1{110} = 0.0091$ for both.
+> - **Dr. GRPO** $\frac1K\cdot\frac{A}{T_{\max}}$: $\frac12\cdot\frac1{100} = 0.005$ for both.
+>
+> $$\boxed{\text{GRPO: } 0.05 \text{ vs } 0.005\ (10\times\text{ gap});\quad \text{DAPO: } 0.0091;\quad \text{Dr. GRPO: } 0.005}$$
+>
+> With $A = -1$, the same 10× gap means the long wrong answer is penalized 10× less per token under GRPO.
 
-Even though only the last token was rewarded, every token gets credit through the critic.
+> [!example]- Problem 12: mean-only vs normalized advantage, and a dead group
+> (a) Rewards $[1, 0, 1, 0]$. (b) Rewards $[0, 0, 0, 0]$. Find the advantages.
+>
+> (a) $\mu = 0.5$, so the mean-only advantages are $[0.5, -0.5, 0.5, -0.5]$. With $\sigma = 0.5$ the normalized ones are $[1, -1, 1, -1]$. (b) Every reward equals the mean, so every advantage is 0.
+>
+> $$\boxed{(a)\ [\pm0.5] \text{ or } [\pm1];\quad (b)\ A = 0 \Rightarrow \text{no gradient}}$$
+>
+> A group where every roll-out fails (or every one succeeds) teaches nothing. This matters for verifiable rewards (Lecture 9).
 
-**Problem 4: GRPO advantages.** $K = 4$ completions score $r = [0.9, 0.4, 0.6, 0.1]$. Find the advantages.
+> [!example]- Problem 13: DPO gradient
+> For $\beta = 1$ and the two cases of your Lecture 13 notes, find $\partial\ell/\partial\log\pi_\theta(y^+)$.
+>
+> $\partial\ell/\partial\log\pi_\theta(y^+) = \beta(\sigma(z) - 1)$:
+> - case 1, $z = 0$: $0.5 - 1 = -0.5$;
+> - case 2, $z = 0.6$: $0.646 - 1 = -0.354$.
+>
+> $$\boxed{-0.5\ (\mathcal L = 0.693),\qquad -0.354\ (\mathcal L = 0.437)}$$
+>
+> As the policy's preference grows beyond the reference's, the push weakens: the sigmoid saturates.
 
-$\bar r = 0.5$, and the deviations are $[0.4, -0.1, 0.1, -0.4]$. Then $\sigma = \sqrt{(0.16 + 0.01 + 0.01 + 0.16)/4} = \sqrt{0.085} = 0.2915$.
-
-$$\boxed{A = [1.37,\ -0.34,\ 0.34,\ -1.37]\ \text{(normalized)};\quad [0.4, -0.1, 0.1, -0.4]\ \text{(the professor's mean-only form)}}$$
-
-The advantages sum to zero: half the group is pushed up and half down, whatever the absolute reward level.
-
-**Problem 5: DPO loss.** $\beta = 0.1$. $\log\pi_\theta(y^+) = -12$ and $\log\pi_{\text{ref}}(y^+) = -14$; $\log\pi_\theta(y^-) = -15$ and $\log\pi_{\text{ref}}(y^-) = -13$. Find $\mathcal L_{\text{DPO}}$, and the loss at initialization ($\pi_\theta = \pi_{\text{ref}}$).
-
-$a = 0.1(-12 + 14) = 0.2$ and $b = 0.1(-15 + 13) = -0.2$, so $a - b = 0.4$. Then $\sigma(0.4) = 1/(1 + e^{-0.4}) = 0.5987$, and the loss is $-\ln 0.5987$. At initialization $a = b = 0$, giving $-\ln\sigma(0) = \ln 2$.
-
-$$\boxed{\mathcal L = 0.513;\quad \mathcal L_{\text{init}} = \ln 2 = 0.693}$$
-
-**Problem 6: KL-shaped token reward.** The last token has $\pi_\theta(y_T) = 0.5$ and $\pi_{\text{ref}}(y_T) = 0.25$, with $\beta = 0.1$ and $r_\psi = 0.8$. An earlier token has $\pi_\theta = \pi_{\text{ref}}$. Find both shaped rewards.
-
-Last token: $0.8 - 0.1\ln 2 = 0.8 - 0.0693$. Earlier token: $0 - 0.1\ln 1 = 0$.
-
-$$\boxed{r_T = 0.731,\quad r_{t<T} = 0}$$
-
-A token is taxed only to the extent the policy has moved away from the reference on it.
-
-**Problem 7: Bradley–Terry from strengths.** Two responses have rewards $r_w = 1.1$ and $r_l = 0$. Find their BT strengths, $P(y_w \succ y_l)$ and the reward loss.
-
-The strengths are $p_w = e^{1.1} = 3.004$ and $p_l = e^0 = 1$, so $P = 3.004/4.004$. Equivalently, $\sigma(1.1) = 0.750$. The loss is $-\ln 0.750$.
-
-$$\boxed{P = 0.750,\quad \mathcal L = 0.288}$$
-
-A reward gap of $\ln 3$ means "three times as strong", i.e. preferred 3 times out of 4.
-
-**Problem 8: pairs and margins.** (a) $K = 4$ responses are ranked $y_2 \succ y_4 \succ y_1 \succ y_3$. List the comparison pairs. (b) A pair has $r_w - r_l = 1.5$ and a Llama-2 margin $m = 1.0$. Compare the loss with and without the margin.
-
-(a) $\binom42 = 6$ pairs: $(y_2, y_4), (y_2, y_1), (y_2, y_3), (y_4, y_1), (y_4, y_3), (y_1, y_3)$, winner first. (b) Without the margin, $-\ln\sigma(1.5) = 0.201$. With it, $-\ln\sigma(1.5 - 1.0) = -\ln 0.6225$.
-
-$$\boxed{6\text{ pairs};\quad \mathcal L = 0.201 \to 0.474 \text{ with the margin}}$$
-
-The margin keeps the loss, and so the gradient, high until the gap exceeds $m$.
-
-**Problem 9: Plackett–Luce.** Three responses with rewards $[2, 1, 0]$ are ranked $y_1 \succ y_2 \succ y_3$. Find the ranking probability and the $K$-wise loss.
-
-$P = \frac{e^2}{e^2 + e + 1}\cdot\frac{e}{e + 1} = \frac{7.389}{11.107}\cdot\frac{2.718}{3.718} = 0.665 \times 0.731$, and the loss is $-\ln 0.486$.
-
-$$\boxed{P = 0.486,\quad \mathcal L_{PL} = 0.721}$$
-
-The second factor is just the BT probability of $y_2$ over $y_3$: PL chains BT-like choices.
-
-**Problem 10: the professor's 2+2 example, wrong answer.** With $\pi_\theta^{\text{old}}(\text{"4"}) = 0.1$ and $\pi_\theta(\text{"4"}) = 0.15$ as before, suppose the reward is $-1$ and $V_\phi = 0.2$. Find the final score for $\rho = 1.5$, and again for $\rho = 0.5$.
-
-$A = -1 - 0.2 = -1.2$.
-- **$\rho = 1.5$:** raw $= -1.8$; clipped $= 1.2 \times (-1.2) = -1.44$; $\min = -1.8$. Not clipped (region 6), so the full gradient applies.
-- **$\rho = 0.5$:** raw $= -0.6$; clipped $= 0.8 \times (-1.2) = -0.96$; $\min = -0.96$. Clipped (region 4), so the gradient is 0.
-
-$$\boxed{-1.8\ (\rho = 1.5),\qquad -0.96\ (\rho = 0.5)}$$
-
-Lowering a bad token's probability is rewarded only down to $1 - \epsilon$.
-
-**Problem 11: GRPO's length bias, and the fixes.** One prompt has $K = 2$ correct completions, both with $A = +1$, of lengths $T_1 = 10$ and $T_2 = 100$. Find the weight each *token* receives under GRPO, DAPO and Dr. GRPO ($T_{\max} = 100$).
-
-- **GRPO** $\frac1K\cdot\frac{A}{T_k}$: $\frac12\cdot\frac1{10} = 0.05$ and $\frac12\cdot\frac1{100} = 0.005$.
-- **DAPO** $\frac{A}{\sum T_k}$: $\frac1{110} = 0.0091$ for both.
-- **Dr. GRPO** $\frac1K\cdot\frac{A}{T_{\max}}$: $\frac12\cdot\frac1{100} = 0.005$ for both.
-
-$$\boxed{\text{GRPO: } 0.05 \text{ vs } 0.005\ (10\times\text{ gap});\quad \text{DAPO: } 0.0091;\quad \text{Dr. GRPO: } 0.005}$$
-
-With $A = -1$, the same 10× gap means the long wrong answer is penalized 10× less per token under GRPO.
-
-**Problem 12: mean-only vs normalized advantage, and a dead group.** (a) Rewards $[1, 0, 1, 0]$. (b) Rewards $[0, 0, 0, 0]$. Find the advantages.
-
-(a) $\mu = 0.5$, so the mean-only advantages are $[0.5, -0.5, 0.5, -0.5]$. With $\sigma = 0.5$ the normalized ones are $[1, -1, 1, -1]$. (b) Every reward equals the mean, so every advantage is 0.
-
-$$\boxed{(a)\ [\pm0.5] \text{ or } [\pm1];\quad (b)\ A = 0 \Rightarrow \text{no gradient}}$$
-
-A group where every roll-out fails (or every one succeeds) teaches nothing. This matters for verifiable rewards (Lecture 9).
-
-**Problem 13: DPO gradient.** For $\beta = 1$ and the two cases of your Lecture 13 notes, find $\partial\ell/\partial\log\pi_\theta(y^+)$.
-
-$\partial\ell/\partial\log\pi_\theta(y^+) = \beta(\sigma(z) - 1)$:
-- case 1, $z = 0$: $0.5 - 1 = -0.5$;
-- case 2, $z = 0.6$: $0.646 - 1 = -0.354$.
-
-$$\boxed{-0.5\ (\mathcal L = 0.693),\qquad -0.354\ (\mathcal L = 0.437)}$$
-
-As the policy's preference grows beyond the reference's, the push weakens: the sigmoid saturates.
-
-**Problem 14: verbosity bias.** With $\beta = 0.1$, the policy raises every token of $y^+$ by $0.02$ nats relative to $\pi_{\text{ref}}$ and lowers every token of $y^-$ by $0.02$. Here $T_{y^-} = 10$. Find $z$ when $T_{y^+} = 100$, and when $T_{y^+} = 10$.
-
-$\Delta_\theta - \Delta_{\text{ref}} = 0.02\,T_{y^+} + 0.02\,T_{y^-}$:
-- $T_{y^+} = 100$: $2 + 0.2 = 2.2$, so $z = 0.22$;
-- $T_{y^+} = 10$: $0.2 + 0.2 = 0.4$, so $z = 0.04$.
-
-$$\boxed{z = 0.22 \text{ vs } 0.04}$$
-
-The same per-token change earns a 5.5× larger margin for the longer winner. That is the verbosity bias. SimPO's length-averaged reward would give both the same margin.
+> [!example]- Problem 14: verbosity bias
+> With $\beta = 0.1$, the policy raises every token of $y^+$ by $0.02$ nats relative to $\pi_{\text{ref}}$ and lowers every token of $y^-$ by $0.02$. Here $T_{y^-} = 10$. Find $z$ when $T_{y^+} = 100$, and when $T_{y^+} = 10$.
+>
+> $\Delta_\theta - \Delta_{\text{ref}} = 0.02\,T_{y^+} + 0.02\,T_{y^-}$:
+> - $T_{y^+} = 100$: $2 + 0.2 = 2.2$, so $z = 0.22$;
+> - $T_{y^+} = 10$: $0.2 + 0.2 = 0.4$, so $z = 0.04$.
+>
+> $$\boxed{z = 0.22 \text{ vs } 0.04}$$
+>
+> The same per-token change earns a 5.5× larger margin for the longer winner. That is the verbosity bias. SimPO's length-averaged reward would give both the same margin.
 
 ---
 
