@@ -20,6 +20,7 @@ aliases:
 
 %% nav:start %%
 [[_CS6304 ATML|CS6304 ATML]] · ← [[ATML_Lecture_11 - Vision-Language Models]] · → [[ATML_Lecture_13 - Model Compression]]
+Related: [[Lecture_11_Inference_Time_Improvements_Part1|CS5326 Lecture 11 — Inference-Time Improvements (decoding, ICL, CoT, self-consistency)]]
 %% nav:end %%
 
 # ATML — Lecture 12 — Test-Time Scaling and Multimodal Reasoning
