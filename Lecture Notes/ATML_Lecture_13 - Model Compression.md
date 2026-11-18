@@ -6,6 +6,8 @@ source:
   - "[[ATML Lec 21.pdf]]"
   - "[[ATML Lec 22 (1).pdf]]"
   - "[[ATML Lec 22 (2).pdf]]"
+  - "[[ATML Lec 23 (1).pdf]]"
+  - "[[ATML Lec 23 (2).pdf]]"
 tags:
   - atml
   - course/cs6304
@@ -25,9 +27,9 @@ aliases:
 
 # ATML — Lecture 13 — Model Compression
 
-*[[ATML_Lecture_12 - Test-Time Scaling and Multimodal Reasoning|Lecture 12]] spent more compute at inference to get better answers from a fixed model. This lecture goes the other way: it makes the model itself cheaper to store and run, while losing as little accuracy as possible. It starts from why large models are expensive and why a smaller model can still generalize (double descent), frames compression as a trade-off between rate and distortion, and then works through the four families: pruning, quantization, low-rank approximation and knowledge distillation.*
+*[[ATML_Lecture_12 - Test-Time Scaling and Multimodal Reasoning|Lecture 12]] spent more compute at inference to get better answers from a fixed model. This lecture goes the other way: it makes the model itself cheaper to store and run, while losing as little accuracy as possible. It starts from why large models are expensive and why a smaller model can still generalize (double descent), frames compression as a trade-off between rate and distortion, and then works through the four families: pruning, quantization, low-rank approximation and knowledge distillation, ending with feature-level and LLM distillation.*
 
-There are no professor's notes for this lecture yet. The sources are your class notes [[ATML Lec 20.pdf|ATML Lecture 20]] (pages 3–5, from "Model Compression" on), [[ATML Lec 21.pdf|ATML Lecture 21]] (10 pages), and two sets of Lecture 22 notes: the paper notebook [[ATML Lec 22 (1).pdf|Lecture 22 (1)]] (4 pages, 12 Nov 2026) and the Notability [[ATML Lec 22 (2).pdf|Lecture 22 (2)]] (11 pages). [[#1. Why Compress a Model|§1]]–[[#2. Compression as Rate–Distortion|§2]] come from Lecture 20, [[#3. Pruning|§3]] and [[#4.1 Mapping reals to integers|§4.1]]–[[#4.5 What quantization touches, and integer arithmetic|§4.5]] from Lecture 21, and [[#4.6 Quantize and dequantize along the network|§4.6]]–[[#6. Knowledge Distillation|§6]] from Lecture 22. Where the two Lecture 22 sets differ, both readings are given. All figures are redrawn in TikZ from your notes.
+There are no professor's notes for this lecture yet. The sources are your class notes [[ATML Lec 20.pdf|ATML Lecture 20]] (pages 3–5, from "Model Compression" on), [[ATML Lec 21.pdf|ATML Lecture 21]] (10 pages), and two sets of Lecture 22 notes: the paper notebook [[ATML Lec 22 (1).pdf|Lecture 22 (1)]] (4 pages, 12 Nov 2026) and the Notability [[ATML Lec 22 (2).pdf|Lecture 22 (2)]] (11 pages). [[#1. Why Compress a Model|§1]]–[[#2. Compression as Rate–Distortion|§2]] come from Lecture 20, [[#3. Pruning|§3]] and [[#4.1 Mapping reals to integers|§4.1]]–[[#4.5 What quantization touches, and integer arithmetic|§4.5]] from Lecture 21, and [[#4.6 Quantize and dequantize along the network|§4.6]]–[[#6. Knowledge Distillation|§6]] from Lecture 22. [[#6.9 Recap — what soft labels add, and why forward KL averages|§6.9]]–[[#7. Distillation for LLMs|§7]] come from two sets of Lecture 23 notes (17 Nov 2026): your friend's paper notebook [[ATML Lec 23 (1).pdf|Lecture 23 (1)]] (4 pages) and your Notability [[ATML Lec 23 (2).pdf|Lecture 23 (2)]] (8 pages). Where two sets differ, both readings are given, and where one set captured something better it is used. All figures are redrawn in TikZ from your notes.
 
 > [!warning] Notation in this lecture
 > Here $D$ is the **number of parameters** and $N$ the **number of training samples**. [[ATML_Lecture_7 - LLM Foundations#5. Scaling Laws|Lecture 7's scaling laws]] use the opposite letters ($N$ for parameters, $D$ for data). This note keeps your class notation.
@@ -75,6 +77,19 @@ There are no professor's notes for this lecture yet. The sources are your class 
   - 6.6 Shaping the teacher's distribution — temperature and label smoothing
   - 6.7 The accuracy gap and dark knowledge
   - 6.8 Decoupled knowledge distillation (DKD)
+  - 6.9 Recap — what soft labels add, and why forward KL averages
+  - 6.10 Gradient conflict between the CE and KD terms
+  - 6.11 Resolving the conflict — gradient harmonization and momentum
+  - 6.12 Why logits lose structure — the task head
+  - 6.13 FitNets — feature-level distillation
+  - 6.14 Contrastive Representation Distillation (CRD)
+  - 6.15 Adversarial distillation and other divergences
+  - 6.16 What knowledge gets distilled?
+- 7. Distillation for LLMs
+  - 7.1 Which prefix does the student see?
+  - 7.2 Off-policy distillation and exposure bias
+  - 7.3 On-policy distillation
+  - 7.4 When to use LLM distillation
 - Numerical Problems
 - Formula Summary Sheet
 - Summary
@@ -631,7 +646,7 @@ Your notes give two reasons:
 2. **The KL divergence is mode-seeking.** KL focuses on the region of the main mode and ignores the rest; what it ignores is **dark knowledge** (DK), the information in the teacher's small probabilities on the non-target classes. The teacher might not be able to teach the stripes of a tiger: the small probability it gives "tiger" for a cat image is exactly the kind of detail that gets lost.
 
 > [!warning] Possible source inconsistency
-> In [[ATML_Lecture_2 - Information Theory and Divergences#5.3 Forward KL Is Mode-Covering (Support-Seeking)|Lecture 2 §5.3]], the forward $\mathrm{KL}(p\Vert q)$ used in [[#^eq-5|eq. (5)]] is **mode-covering**; the reverse $\mathrm{KL}(q\Vert p)$ is the mode-seeking one ([[ATML_Lecture_2 - Information Theory and Divergences#5.4 Reverse KL Divergence Is Mode-Seeking|§5.4]]). The effect your notes describe is real, but it comes from a different mechanism: when the teacher is confident, the KL term is dominated by the target class and the non-target part is down-weighted. [[#6.8 Decoupled knowledge distillation (DKD)|§6.8]] makes this exact.
+> In [[ATML_Lecture_2 - Information Theory and Divergences#5.3 Forward KL Is Mode-Covering (Support-Seeking)|Lecture 2 §5.3]], the forward $\mathrm{KL}(p\Vert q)$ used in [[#^eq-5|eq. (5)]] is **mode-covering**; the reverse $\mathrm{KL}(q\Vert p)$ is the mode-seeking one ([[ATML_Lecture_2 - Information Theory and Divergences#5.4 Reverse KL Divergence Is Mode-Seeking|§5.4]]). The effect your notes describe is real, but it comes from a different mechanism: when the teacher is confident, the KL term is dominated by the target class and the non-target part is down-weighted. [[#6.8 Decoupled knowledge distillation (DKD)|§6.8]] makes this exact. The Lecture 23 recap ([[#6.9 Recap — what soft labels add, and why forward KL averages|§6.9]]) states the standard property: forward KL makes the student mode-covering.
 
 How do we identify dark knowledge and teach it to the student? There are many techniques; the class focuses on one.
 
@@ -657,6 +672,167 @@ $$\boxed{\mathrm{KL}(p\Vert q) = \underbrace{\mathrm{KL}(b^T\Vert b^S)}_{\text{T
 ^eq-6
 
 The non-target part is multiplied by $1 - p_t$. A confident teacher ($p_t \to 1$) therefore switches NCKD, the dark knowledge, almost off: that is the "focus on the mode" your notes describe. DKD removes the coupling by weighting the two terms independently, $L_{\text{DKD}} = \gamma_{\text{TC}}\,\mathrm{TCKD} + \gamma_{\text{NC}}\,\mathrm{NCKD}$, with $\gamma_{\text{NC}}$ no longer tied to $p_t$. *(The weights are called $\alpha$ and $\beta$ in the DKD paper; renamed here because $\alpha$ is sparsity in [[#3.1 Masks, sparsity and density|§3.1]].)*
+
+### 6.9 Recap — what soft labels add, and why forward KL averages
+
+Lecture 23 opened by restating the setup of [[#6.1 Teacher, student and the undistilled baseline|§6.1]]–[[#6.4 Hard labels vs soft labels|§6.4]], with $i$ the label of the true class. Matching the teacher's and student's probabilities $p_i$ and $q_i$ as **soft labels**, with $D_{\mathrm{KL}}(p\Vert q)$, is equivalent at high temperature to **matching logits**, $\text{MSE}(z_i, v_i)$ ([[#6.3 Why the ρ² factor — distillation becomes logit MSE|§6.3]]). The loss is your friend's $L_T = \alpha L_{\text{CE}} + (1-\alpha)L_{\text{KD}}$, which is [[#^eq-5|eq. (5)]] with $\lambda$ written $\alpha$ and $L_{\text{DIST}}$ written $L_{\text{KD}}$; your notes drop the $\alpha$ on the CE term. The two terms carry different information:
+- $L_{\text{CE}}$ uses **hard labels** (one-hot encoded), which only say that $x \in$ class $i$.
+- $L_{\text{KD}}$ uses the teacher's **soft labels**, a full distribution, which also says how similar $x$ is to every other class: $\text{similarity}(x, c_j)$ for $j \ne i$.
+
+The second plot in your notes is that extra information: a distribution peaked at the target $i$ with mass spread over the other classes, the **dark knowledge** of [[#6.7 The accuracy gap and dark knowledge|§6.7]]. The **capacity gap** of §6.7 is restated as: the student has fewer parameters than the teacher.
+
+**The problem with the original KD.** The divergence is the **forward** KL. If the teacher's distribution has **two modes**, a student that cannot represent both is pushed to be **mode-covering**: it spreads over both modes and puts its peak on the **average**, between them, where the teacher has little mass. This is the mode-covering behaviour of forward KL from [[ATML_Lecture_2 - Information Theory and Divergences#5.3 Forward KL Is Mode-Covering (Support-Seeking)|Lecture 2 §5.3]]. It settles the inconsistency flagged in §6.7: the class's recap uses the standard property.
+
+![[03 - Attachments/ATML_L13_forward_kl_avg.svg|700]]
+
+*(a) Forward $\mathrm{KL}(p\Vert q)$ heavily penalizes $q \approx 0$ wherever $p > 0$, so a single-mode student must cover both teacher modes and centres itself on their average. (b) Dark knowledge: besides the target $i$, the soft label has mass on every class $j \ne i$, which encodes $\text{similarity}(x, c_j)$.*
+
+### 6.10 Gradient conflict between the CE and KD terms
+
+DKD ([[#6.8 Decoupled knowledge distillation (DKD)|§6.8]]) **decouples the weights**: instead of $\alpha$ and $1 - \alpha$, the two terms get independent weights, which your notes write as $\alpha$ and $\beta$ (here $\lambda$ and $\mu$, since $\alpha$ is sparsity in §3.1):
+
+$$L_T = \lambda L_{\text{CE}} + \mu L_{\text{KD}}, \qquad \nabla L_T = \lambda\,\nabla L_{\text{CE}} + \mu\,\nabla L_{\text{KD}}.$$
+
+The issue is in the gradient: **the two gradients can cancel each other out.** The class measures this **conflict** by the cosine similarity of the two gradients,
+
+$$\text{conflict} = \cos(\nabla L_{\text{CE}}, \nabla L_{\text{KD}}) = \frac{\nabla L_{\text{CE}}\cdot\nabla L_{\text{KD}}}{\lVert\nabla L_{\text{CE}}\rVert\,\lVert\nabla L_{\text{KD}}\rVert}, \qquad\qquad\text{(7)}$$
+^eq-7
+
+and in practice it is found to be **$\approx 0$ or $< 0$**: the gradients are orthogonal or point against each other.
+
+**Why they conflict.** The one-hot label has **0 in the non-target classes; the soft labels don't.** *(The derivation below makes this concrete.)* With $\rho = 1$, the gradient of each term with respect to the student's logits is the familiar softmax gradient: $\partial L_{\text{CE}}/\partial z = q - y$ and $\partial L_{\text{KD}}/\partial z = q - p$. On a non-target class $j$, CE's gradient is $q_j > 0$, so gradient descent lowers $z_j$ towards probability 0. KD's gradient is $q_j - p_j$, which is negative whenever the teacher gives class $j$ more mass than the student, so it raises $z_j$. The two terms push the same logit in **opposite directions** on every such class. On the target class, CE always raises $z_t$ ($q_t - 1 < 0$), while KD lowers it once the student is more confident than the teacher ($q_t > p_t$). A student sitting between the one-hot label and the teacher is pulled both ways at once. (The cosine is usually measured over the parameter gradients; these are the logit gradients mapped back through the network, so the conflict carries over.)
+
+**What it costs.** The update is $\theta_S^{(i+1)} \leftarrow \theta_S^{(i)} - \eta\,\nabla\text{loss}$. When $\nabla_{\text{KD}}$ and $\nabla_{\text{CE}}$ point apart, their sum is short (the red arrow in your notes), so each step makes little progress: **convergence becomes slow**. [[#Numerical Problems|Problem 18]] works an example with cosine $-0.97$.
+
+### 6.11 Resolving the conflict — gradient harmonization and momentum
+
+How to resolve the conflict? The class gave two approaches.
+
+**① Gradient harmonization with the Gram–Schmidt procedure.** Make the cosine similarity **at least $\approx 0$**. When $g_{\text{KD}}\cdot g_{\text{CE}} < 0$, remove from $g_{\text{KD}}$ its component along $g_{\text{CE}}$, one step of Gram–Schmidt orthogonalization (your friend's sketch marks the result "ortho"):
+
+$$g_{\text{KD}}^{\perp} = g_{\text{KD}} - \frac{g_{\text{KD}}\cdot g_{\text{CE}}}{\lVert g_{\text{CE}}\rVert^2}\,g_{\text{CE}}, \qquad g_{\text{KD}}^{\perp}\cdot g_{\text{CE}} = 0. \qquad\qquad\text{(8)}$$
+^eq-8
+
+The update then uses $\lambda g_{\text{CE}} + \mu g_{\text{KD}}^{\perp}$: the distillation signal no longer undoes the task signal, and what remains of it points in a direction the CE term does not care about. *(Expanding on this: the same projection is "gradient surgery", PCGrad (Yu et al., 2020), used for conflicting tasks in multi-task learning; when the cosine is already $\ge 0$, nothing is changed.)* [[#Numerical Problems|Problem 19]] applies it.
+
+**② Maintain an average velocity (momentum).** Instead of following each step's gradient, keep a running average: put a **low-pass filter over a moving window** of gradients. The **exponential moving average (EMA)**
+
+$$v_t = \beta_m\,v_{t-1} + (1 - \beta_m)\,g_t, \qquad \theta_{t+1} = \theta_t - \eta\,v_t \qquad\qquad\text{(9)}$$
+^eq-9
+
+becomes the **velocity** $v_t$, and it **provides momentum**. Here $\beta_m \in [0, 1)$ is the momentum coefficient (written $\beta_m$ to keep it apart from DKD's $\beta$); the window it averages over is about $1/(1 - \beta_m)$ steps. Components of the gradient that flip direction from step to step, such as the tug of war between CE and KD, average out, while the consistent direction accumulates. Your friend's note says the EMA **counters drift**: the little zig-zag arrows become one steady arrow $v_t$. *(Expanding on this: the Distillation-Oriented Trainer, DOT (Zhao et al., 2023, from the DKD authors), uses this idea with separate momenta for the CE and KD gradients, a larger one for the KD term.)* [[#Numerical Problems|Problem 20]] shows the filtering.
+
+![[03 - Attachments/ATML_L13_grad_conflict.svg|760]]
+
+*(a) Conflicting gradients: the angle exceeds $90^\circ$, so their sum is short and steps are slow. (b) Gram–Schmidt removes the part of $g_{\text{KD}}$ that opposes $g_{\text{CE}}$, leaving $g_{\text{KD}}^{\perp}$ orthogonal to it. (c) Momentum: the EMA of zig-zagging gradients is a steady velocity $v_t$.*
+
+### 6.12 Why logits lose structure — the task head
+
+Both fixes keep distilling at the **logits**. The class then asked whether the logits are the right place at all. Follow the teacher on an image $x$:
+
+$$x \;\to\; T \;\to\; h \in \mathbb R^{d} \;\to\; \text{task head} \;\to\; v \in \mathbb R^{K} \;\to\; p \in \mathbb R^{K}$$
+
+$h$ is the **latent of $T$**, a $d \times 1$ vector (your notes write it $z$; renamed here because $z$ is the student's logits in §6.1). The **task head** is an MLP, so the teacher's logits are $v = \text{MLP}(h)$, a $K \times 1$ vector with $K$ the number of classes and $d \gg K$.
+
+For the latent to be useful, we **need its dimensions to be independent of each other**: the hope is that $h_1, \dots, h_d$ hold **disentangled semantic information**. The MLP **mixes this information again** to produce the $K$ logits, connecting every latent dimension to every logit. After that mixing, the **inter-class similarity structure is destroyed**: the $K$ numbers no longer say which semantic factors made two classes similar. Recovering it from the logits is an **open problem**. It suggests distilling **before the head**, from the features themselves.
+
+![[03 - Attachments/ATML_L13_task_head.svg|620]]
+
+*The task head maps the $d$-dimensional latent $h$ to $K \ll d$ logits by mixing every dimension into every logit, so logit matching sees only the mixed result.*
+
+### 6.13 FitNets — feature-level distillation
+
+**FitNets** (Romero et al., 2015) distil at the **feature level**. Pass $x$ through both networks (drawn in your notes as stacks of Transformer blocks) and match an intermediate feature map of the teacher, $F_T$, with one of the student, $F_S$, by mean squared error, $\text{MSE}(F_T, F_S)$, in addition to the usual outputs $p$ and $q$.
+
+**Problem: dimension mismatch.** $F_T$ is the **bigger tensor**, since the teacher is wider. So put a **regressor head** on the student to upsample its features, for example a **one-layer MLP**:
+
+$$L_{\text{FitNets}} = \text{MSE}\big(F_T,\ \text{Reg}(F_S)\big). \qquad\qquad\text{(10)}$$
+^eq-10
+
+Your friend notes the regressor **can be upscaling or downscaling** (one could instead shrink $F_T$). The remaining problem: **we don't know the ideal regressor.** *(Expanding on why this matters: $\text{Reg}$ is trained together with the student. A powerful regressor can match $F_T$ on its own without the student's features learning anything; a weak one cannot even express the right mapping. The loss value does not say which happened.)* The next step is therefore to **distil semantics directly**, without asking features to match coordinate by coordinate.
+
+### 6.14 Contrastive Representation Distillation (CRD)
+
+**CRD** (Tian, Krishnan and Isola, MIT, 2020) distils the representation with a contrastive objective. $x \sim$ class $i$ goes through both networks, giving representations $h_T$ and $h_S$ (your notes: $z_T$, $z_S$). The teacher and student representations of **the same $x$** form the **positive pair**; the teacher's pairing with images **not in class $i$** gives the **negatives** $h^-$. Over a batch of $N$ (one positive and the rest negatives),
+
+$$L_{\text{contrastive}} = \frac{\text{sim}(h_T, h_S)}{\text{sim}(h_T, h_S) + \sum_{k=2}^{N}\text{sim}(h_T, h_k^{-})}. \qquad\qquad\text{(11)}$$
+^eq-11
+
+(Your notes write the first term of the denominator as "$\,''\,$", a ditto for the numerator.) The similarity **contains a temperature**, ignored above; in the usual form $\text{sim}(a, b) = \exp\!\big(\cos(a, b)/\tau\big)$. [[#^eq-11|Eq. (11)]] is a ratio to **maximize**, close to 1 when the student's representation is near the teacher's and far from the negatives. Training minimizes its negative log, the **InfoNCE** loss of [[ATML_Lecture_3 - Discriminative, Contrastive, and Generative Models#3.2 The Contrastive Pipeline and the InfoNCE Loss|Lecture 3 §3.2]]. The student is no longer asked to copy the teacher's coordinates, only to put the same images close together and different ones apart, which is the semantic structure. [[#Numerical Problems|Problem 22]] computes it at two temperatures.
+
+The number of negatives is large: **on the order of 65K** in your notes. *(Expanding on this: CRD keeps the negatives in a memory bank of past embeddings rather than one batch; I recall its default as 16,384, so 65K may be a configuration mentioned in class. Treat the exact figure as unconfirmed.)*
+
+**Ranking from class:** $\text{CRD} \gg \text{FitNets} > \text{logit matching}$.
+
+![[03 - Attachments/ATML_L13_feature_kd.svg|820]]
+
+*(a) FitNets: a regressor lifts the student's feature $F_S$ to the teacher's size and MSE matches it to $F_T$. (b) CRD: pull the teacher–student pair of the same $x$ together and push the teacher's embedding away from $N - 1$ negatives of other classes. (c) Adversarial distillation: a discriminator tries to tell teacher from student representations; when it is fooled ($D = 0.5$) the two match.*
+
+### 6.15 Adversarial distillation and other divergences
+
+**Adversarial distillation** brings in a **discriminator** "Disc" that receives the teacher's and the student's representations and tries to tell them apart. The student is trained to fool it. The representations are the same when the discriminator is **fooled maximally**, outputting probability **0.5**: the GAN equilibrium of [[ATML_Lecture_4 - GANs, and Inductive Biases#1.2 The Discriminator, the Generator, and the Equilibrium|Lecture 4 §1.2]], here with the teacher's representations as the "real" data (the same device as the domain discriminator in [[ATML_Lecture_5_1 - Domain Adaptation#6.2 Adversarial-Based — Domain Discriminator and the Gradient Reversal Layer (DANN)|Lecture 5.1 §6.2]]). Your notes record that, in specific scenarios, this was shown to be **almost similar to FitNets, empirically**.
+
+> [!note] Unclear in source
+> "Proved in specific scenario that this is almost similar to FitNets, empirically" mixes a proof and an empirical finding. Read here as: in the settings studied, adversarial distillation performs about the same as FitNets.
+
+**Other divergences.** People have tried **optimal transport**, the **Wasserstein distance** $W_D(p, q)$, instead of KL, or the **Sinkhorn** distance; your friend adds that it could be any other such distance. These are [[ATML_Lecture_2 - Information Theory and Divergences#7.3 The Optimal Transport Linear Program and the Wasserstein Distance|Lecture 2 §7.3]] and [[ATML_Lecture_2 - Information Theory and Divergences#7.5 Entropic Regularization, Sinkhorn Distance, and the Sinkhorn Algorithm|§7.5]]. *(Expanding on why one would: KL compares the two distributions class by class and ignores how classes relate; OT uses a cost between classes, so moving mass from "cat" to "tiger" can cost less than from "cat" to "truck", which builds class similarity into the loss.)*
+
+### 6.16 What knowledge gets distilled?
+
+A **2023 paper** asks **what knowledge gets distilled**, which your friend marks as a paper to read. Its finding as noted in class: the knowledge transferred lies in a **different direction than the accuracy-maximizing direction**. The student inherits more than the teacher's accuracy. This is a **new research direction**.
+
+The class example is **adversarial attacks**: for a cat image, the teacher looks at a particular region for its decision, and **so does the student**. *(Expanding on this: the paper is Ojha et al., "What Knowledge Gets Distilled in Knowledge Distillation?", NeurIPS 2023. It reports that students inherit teachers' localization of evidence, their vulnerability to the same adversarial perturbations, and some of their biases, even when that is not needed for accuracy.)*
+
+---
+
+## 7. Distillation for LLMs
+
+Everything in §6 assumed one prediction per input. A language model makes a prediction at **every token**, conditioned on the tokens before it, and that raises a new question.
+
+### 7.1 Which prefix does the student see?
+
+Take $(x, y) \sim$ dataset, a prompt and its response. Both teacher and student are **autoregressive** ([[ATML_Lecture_7 - LLM Foundations#1.2 Autoregressive (decoder-only) models|Lecture 7 §1.2]]), so at each position $t$ they give next-token distributions $p(\cdot \mid y_{<t})$ and $q(\cdot \mid y_{<t})$: **distributions for every token**, matched per token with a divergence as in §6.2.
+
+What problems can occur? The key one is **what token to feed next to the student** to train it, that is, where the prefix $y_{<t}$ comes from. Three sources of information are available:
+1. the **dataset**;
+2. the **teacher's predictions**;
+3. the **student's predictions**.
+
+This choice **defines two areas** of LLM distillation.
+
+### 7.2 Off-policy distillation and exposure bias
+
+In **off-policy distillation** the next token, and so the prefix, comes from **the teacher or the dataset**. This is teacher forcing ([[ATML_Lecture_7 - LLM Foundations#4.2 Worked example and teacher forcing|Lecture 7 §4.2]]): the student is always conditioned on good text it did not write.
+
+**Problem: exposure bias.** *(Expanding on this:)* at inference the student conditions on **its own** earlier tokens. Once it makes a mistake, it is in a prefix unlike anything it was trained on, and errors compound, because training never exposed it to its own outputs.
+
+### 7.3 On-policy distillation
+
+In **on-policy distillation** the prefix comes from the **student's own samples**: the student generates, and the teacher provides the target distribution at every token of that student-written text. The student is trained on the prefixes it will actually see at inference, which removes exposure bias. *(Expanding on this: GKD, generalized knowledge distillation (Agarwal et al., 2024), trains on student-generated sequences, and MiniLLM (Gu et al., 2024) pairs on-policy sampling with the reverse KL, which is mode-seeking ([[ATML_Lecture_2 - Information Theory and Divergences#5.4 Reverse KL Divergence Is Mode-Seeking|Lecture 2 §5.4]]) and so avoids the averaging of §6.9.)*
+
+> [!warning] Possible source inconsistency
+> Your notes list "① On-policy distillation — get the next token (prefix) from the teacher or the dataset", then exposure bias. Your friend's notes label the same thing "① **Off**-policy distillation (next token from T or dataset)" with "② On-policy distillation" as the second area. Your friend's labels match the standard terms, since "on-policy" means sampled from the student's own policy, and they are used here. Neither set records further details of on-policy distillation, so §7.3's description is standard background.
+
+![[03 - Attachments/ATML_L13_llm_kd.svg|760]]
+
+*(a) Off-policy: the prefix comes from the teacher or the dataset, and the student and teacher distributions are matched on it per token; the student never sees its own mistakes (exposure bias). (b) On-policy: the student samples the next token itself, so it is trained on the prefixes it will produce at inference.*
+
+### 7.4 When to use LLM distillation
+
+The class listed three use cases:
+1. **Initialize the student**, $\theta^{(0)}$: your notes have "init S with $\theta^{(0)}$ → 1–2 iterations of teacher".
+2. **Prune → fine-tune on a stronger signal**: after pruning ([[#3. Pruning|§3]]), recover accuracy by fine-tuning against the teacher's soft distributions rather than hard labels.
+3. **Post-training distillation**: bring in a strong model, "Fable 5.2" in your notes, to align a model such as DeepSeek.
+
+> [!note] Unclear in source
+> Use case 1 is only a fragment in both sets. Read here as warm-starting the student by distilling from the teacher for one or two iterations before ordinary training, but the intended meaning of "1–2 iterations of teacher" is not recorded.
+
+Your notes end with: **generalization happens during the RL alignment stage.** *(Expanding on this: distillation, like SFT, teaches the student to imitate; the RL stage of [[ATML_Lecture_9 - RLVR, Reasoning LLMs, and Using LLMs#1.3 RLVR: a verifier in place of the learned reward model|Lecture 9 §1.3]], with rewards on its own outputs, is where the model learns behaviour beyond what it imitated.)*
+
+![[03 - Attachments/ATML_L13_kd_map.svg|780]]
+
+*How the distillation methods of §6–§7 relate. From plain KD, logit-level work refines the loss (DKD) and its optimization (gradient conflict fixes). Because the task head mixes the latent, feature-level methods distil before it (FitNets, CRD, adversarial), and other divergences (OT, Sinkhorn) replace KL. LLMs add the choice of prefix (off- vs on-policy) and a set of use cases.*
+
 
 ---
 
@@ -786,6 +962,54 @@ $$\boxed{0.0257 + (1 - 0.8)(0.0443) = 0.0346 = \mathrm{KL}(p\Vert q)}$$
 
 In plain KD the non-target mismatch, the larger of the two, enters with weight only $0.2$; DKD gives it its own weight $\gamma_{\text{NC}}$ ([[#6.8 Decoupled knowledge distillation (DKD)|§6.8]]).
 
+**Problem 18 — measuring gradient conflict.** A student gives $q = (0.6, 0.3, 0.1)$ on a three-class example with true class 1, so $y = (1, 0, 0)$; the teacher gives $p = (0.5, 0.4, 0.1)$. With $\rho = 1$, compute the logit gradients of $L_{\text{CE}}$ and $L_{\text{KD}}$, their cosine ([[#^eq-7|eq. (7)]]), and the length of the update with $\lambda = \mu = 0.5$ ([[#6.10 Gradient conflict between the CE and KD terms|§6.10]]).
+
+$g_{\text{CE}} = q - y = (-0.4, 0.3, 0.1)$ and $g_{\text{KD}} = q - p = (0.1, -0.1, 0)$. The dot product is $-0.04 - 0.03 + 0 = -0.07$, and the norms are $\sqrt{0.26} = 0.510$ and $\sqrt{0.02} = 0.141$, so $\cos = -0.07/(0.510 \times 0.141) = -0.971$. The combined gradient is $0.5g_{\text{CE}} + 0.5g_{\text{KD}} = (-0.15, 0.10, 0.05)$, of length $0.187$.
+
+$$\boxed{\cos(g_{\text{CE}}, g_{\text{KD}}) = -0.97, \quad \lVert\text{update}\rVert = 0.187 < 0.255 = \lVert 0.5\,g_{\text{CE}}\rVert}$$
+
+The student is more confident on the target than the teacher ($0.6 > 0.5$), so KD pushes the target logit down while CE pushes it up, and the KD half of the update undoes part of the CE half.
+
+**Problem 19 — Gram–Schmidt harmonization.** Apply [[#^eq-8|eq. (8)]] to Problem 18's gradients and give the harmonized update.
+
+$\frac{g_{\text{KD}}\cdot g_{\text{CE}}}{\lVert g_{\text{CE}}\rVert^2} = \frac{-0.07}{0.26} = -0.2692$, so $g_{\text{KD}}^{\perp} = (0.1, -0.1, 0) + 0.2692\,(-0.4, 0.3, 0.1) = (-0.0077, -0.0192, 0.0269)$. Check: $g_{\text{KD}}^{\perp}\cdot g_{\text{CE}} = 0.0031 - 0.0058 + 0.0027 = 0$. The update $0.5g_{\text{CE}} + 0.5g_{\text{KD}}^{\perp} = (-0.204, 0.140, 0.063)$.
+
+$$\boxed{g_{\text{KD}}^{\perp} = (-0.0077, -0.0192, 0.0269), \quad \text{update} = (-0.204, 0.140, 0.063)}$$
+
+The CE part of the step is now intact, and only the KD direction that CE does not oppose remains.
+
+**Problem 20 — momentum filters a zig-zag.** The gradient along one coordinate alternates, $g_t = 0.2 + (-1)^t$ (so $-0.8, 1.2, -0.8, \dots$), with a true average of 0.2. With $\beta_m = 0.9$ and $v_0 = 0$ in [[#^eq-9|eq. (9)]], compute $v_1$ to $v_4$ and the size of $v$'s long-run oscillation.
+
+$v_1 = 0.1(-0.8) = -0.08$; $v_2 = 0.9(-0.08) + 0.1(1.2) = 0.048$; $v_3 = 0.0432 - 0.08 = -0.0368$; $v_4 = -0.0331 + 0.12 = 0.0869$. In steady state $v_t = 0.2 + A(-1)^t$; substituting, $A(-1)^t = -0.9A(-1)^{t} + 0.1(-1)^t$, so $A = 0.1/1.9 = 0.053$.
+
+$$\boxed{v_t \to 0.2 \pm 0.053, \ \text{versus raw gradients } 0.2 \pm 1}$$
+
+The oscillation shrinks by a factor of $(1 - \beta_m)/(1 + \beta_m) = 1/19$ while the consistent component passes unchanged: the low-pass filter of [[#6.11 Resolving the conflict — gradient harmonization and momentum|§6.11]].
+
+**Problem 21 — the FitNets regressor.** The student's hint features are 384-dimensional per token and the teacher's 768. How many parameters does a one-layer linear regressor $\text{Reg}$ ([[#^eq-10|eq. (10)]]) need?
+
+A $384 \to 768$ linear layer has $384 \times 768$ weights and $768$ biases:
+
+$$\boxed{294{,}912 + 768 = 295{,}680 \text{ parameters}}$$
+
+These are trained with the student and thrown away afterwards; their capacity is the "ideal regressor" question of [[#6.13 FitNets — feature-level distillation|§6.13]].
+
+**Problem 22 — the CRD ratio and temperature.** The teacher–student positive pair has cosine 0.8, and three negatives have cosines $0.1, -0.2, 0.3$. With $\text{sim} = \exp(\cos/\tau)$, compute [[#^eq-11|eq. (11)]] and the loss $-\ln(\cdot)$ at $\tau = 0.1$ and $\tau = 1$.
+
+At $\tau = 0.1$: $e^{8} = 2981.0$ and the negatives give $e^{1} + e^{-2} + e^{3} = 2.718 + 0.135 + 20.086 = 22.94$, so the ratio is $2981.0/3003.9 = 0.9924$ and the loss $0.0077$. At $\tau = 1$: $e^{0.8} = 2.226$ against $1.105 + 0.819 + 1.350 = 3.274$, so the ratio is $2.226/5.499 = 0.405$ and the loss $0.905$.
+
+$$\boxed{\tau = 0.1:\ 0.992,\ L = 0.008; \qquad \tau = 1:\ 0.405,\ L = 0.905}$$
+
+A low temperature sharpens the differences between similarities, so the same geometry is scored as almost solved; with $\tau = 1$ the negatives still claim most of the denominator.
+
+**Problem 23 — the fooled discriminator.** In adversarial distillation ([[#6.15 Adversarial distillation and other divergences|§6.15]]), the discriminator outputs $D(r)$, the probability that representation $r$ came from the teacher. Its optimum is $D^*(r) = \frac{p_T(r)}{p_T(r) + p_S(r)}$. What is $D^*$ when the student's representations match the teacher's, and what is the discriminator's binary cross-entropy $-\ln D(r_T) - \ln(1 - D(r_S))$ there?
+
+If $p_S = p_T$, then $D^* = p_T/(2p_T) = 0.5$ everywhere, and the loss is $-\ln 0.5 - \ln 0.5 = 2\ln 2$:
+
+$$\boxed{D^* = 0.5, \quad \text{BCE} = 2\ln 2 = 1.386}$$
+
+This is the equilibrium of [[ATML_Lecture_4 - GANs, and Inductive Biases#1.2 The Discriminator, the Generator, and the Equilibrium|Lecture 4 §1.2]]: the discriminator can do no better than a coin flip.
+
 ---
 
 ## Formula Summary Sheet
@@ -829,6 +1053,15 @@ In plain KD the non-target mismatch, the larger of the two, enters with weight o
 | Label smoothing | $y_{\text{LS}} = (1-\varepsilon)y + \varepsilon/K$ | [[#6.6 Shaping the teacher's distribution — temperature and label smoothing\|§6.6]] |
 | DKD decomposition ([[#^eq-6\|eq. (6)]]) | $\mathrm{KL}(p\Vert q) = \mathrm{KL}(b^T\Vert b^S) + (1-p_t)\,\mathrm{KL}(\hat p\Vert\hat q)$, $\hat p_i = p_i/(1-p_t)$ | [[#6.8 Decoupled knowledge distillation (DKD)\|§6.8]] |
 | DKD loss | $\gamma_{\text{TC}}\,\mathrm{TCKD} + \gamma_{\text{NC}}\,\mathrm{NCKD}$ | [[#6.8 Decoupled knowledge distillation (DKD)\|§6.8]] |
+| Decoupled weights | $L_T = \lambda L_{\text{CE}} + \mu L_{\text{KD}}$, $\nabla L_T = \lambda\nabla L_{\text{CE}} + \mu\nabla L_{\text{KD}}$ | [[#6.10 Gradient conflict between the CE and KD terms\|§6.10]] |
+| Logit gradients ($\rho = 1$) | $\partial L_{\text{CE}}/\partial z = q - y$, $\partial L_{\text{KD}}/\partial z = q - p$ | [[#6.10 Gradient conflict between the CE and KD terms\|§6.10]] |
+| Gradient conflict ([[#^eq-7\|eq. (7)]]) | $\cos(\nabla L_{\text{CE}}, \nabla L_{\text{KD}})$, observed $\approx 0$ or $< 0$ | [[#6.10 Gradient conflict between the CE and KD terms\|§6.10]] |
+| Gram–Schmidt harmonization ([[#^eq-8\|eq. (8)]]) | $g_{\text{KD}}^{\perp} = g_{\text{KD}} - \frac{g_{\text{KD}}\cdot g_{\text{CE}}}{\lVert g_{\text{CE}}\rVert^2}g_{\text{CE}}$ | [[#6.11 Resolving the conflict — gradient harmonization and momentum\|§6.11]] |
+| EMA momentum ([[#^eq-9\|eq. (9)]]) | $v_t = \beta_m v_{t-1} + (1-\beta_m)g_t$, $\theta_{t+1} = \theta_t - \eta v_t$ | [[#6.11 Resolving the conflict — gradient harmonization and momentum\|§6.11]] |
+| Task head | $v = \text{MLP}(h)$, $h \in \mathbb R^d \to v \in \mathbb R^K$, $d \gg K$ | [[#6.12 Why logits lose structure — the task head\|§6.12]] |
+| FitNets ([[#^eq-10\|eq. (10)]]) | $\text{MSE}(F_T, \text{Reg}(F_S))$ | [[#6.13 FitNets — feature-level distillation\|§6.13]] |
+| CRD ([[#^eq-11\|eq. (11)]]) | $\frac{\text{sim}(h_T,h_S)}{\text{sim}(h_T,h_S) + \sum_{k=2}^N\text{sim}(h_T,h_k^-)}$, $\text{sim} = e^{\cos/\tau}$ | [[#6.14 Contrastive Representation Distillation (CRD)\|§6.14]], [[ATML_Lecture_3 - Discriminative, Contrastive, and Generative Models#3.2 The Contrastive Pipeline and the InfoNCE Loss\|L3 §3.2]] |
+| Optimal discriminator | $D^* = p_T/(p_T + p_S) = 0.5$ when matched | [[#6.15 Adversarial distillation and other divergences\|§6.15]], [[ATML_Lecture_4 - GANs, and Inductive Biases#1.2 The Discriminator, the Generator, and the Equilibrium\|L4 §1.2]] |
 
 ---
 
@@ -879,3 +1112,16 @@ In plain KD the non-target mismatch, the larger of the two, enters with weight o
   - A lenient teacher (higher entropy) is better than a strict one, but a uniform teacher is useless; shape it with temperature or label smoothing.
   - Teacher > student > undistilled student; the gap comes from limited capacity and lost dark knowledge on non-target classes.
   - DKD splits KL into TCKD (target vs a hypothetical "rest" class) and NCKD (renormalized non-target classes); plain KD weights NCKD by $1 - p_t$, so a confident teacher hides it, and DKD weights the two separately.
+  - Hard labels say only $x \in$ class $i$; soft labels add $\text{similarity}(x, c_j)$. Forward KL makes a one-mode student cover a two-mode teacher, peaking at their average.
+  - With independent weights, $\nabla L_{\text{CE}}$ and $\nabla L_{\text{KD}}$ conflict (cosine $\approx 0$ or $< 0$): one-hot targets push non-target logits to 0, soft labels pull them up, so updates are short and convergence slow.
+  - Fixes: Gram–Schmidt removes the opposing component of $g_{\text{KD}}$ (cosine $\to 0$); momentum (EMA, a low-pass filter) keeps the average direction.
+  - The task head $v = \text{MLP}(h)$ mixes $d \gg K$ latent dimensions, destroying inter-class structure in the logits (open problem), so distil features instead.
+  - FitNets: $\text{MSE}(F_T, \text{Reg}(F_S))$ with a regressor for the size mismatch, but the ideal regressor is unknown.
+  - CRD: InfoNCE between teacher and student embeddings of the same $x$ against many negatives (~65K in class). Ranking: CRD ≫ FitNets > logit matching.
+  - Adversarial distillation (discriminator fooled at 0.5) performs about like FitNets; OT/Wasserstein or Sinkhorn can replace KL.
+  - What is distilled goes beyond accuracy (2023): students copy where teachers look, including adversarial weaknesses.
+
+- **LLM distillation ([[#7. Distillation for LLMs|§7]])**
+  - Per-token distributions; the key choice is where the prefix comes from (dataset, teacher or student).
+  - Off-policy (teacher or dataset prefixes) suffers exposure bias; on-policy trains on the student's own samples. Your notes swap the labels; your friend's (used here) are standard.
+  - Uses: initialize the student, prune then fine-tune on the teacher's signal, post-training distillation from a stronger model; generalization comes in the RL alignment stage.
